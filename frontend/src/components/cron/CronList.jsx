@@ -112,7 +112,7 @@ function JobModal({ initial, onSave, onClose, loading }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-lg w-full max-w-lg flex flex-col gap-4 p-5">
+      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-lg flex flex-col gap-4 p-5">
         <div className="flex items-center gap-2">
           <Clock size={14} className="text-panel-muted" />
           <h3 className="text-panel-text text-sm font-medium">{isEdit ? 'Edit Job' : 'New Cron Job'}</h3>
@@ -193,7 +193,7 @@ function JobModal({ initial, onSave, onClose, loading }) {
 function DeleteConfirm({ job, onConfirm, onClose, loading }) {
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-lg w-full max-w-sm p-5 flex flex-col gap-4">
+      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-sm p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <AlertTriangle size={14} className="text-panel-yellow" />
           <h3 className="text-panel-text text-sm font-medium">Delete Job?</h3>
@@ -339,7 +339,7 @@ export default function CronList() {
       </div>
 
       {/* Job table */}
-      <div className="bg-panel-surface border border-panel-border rounded-lg overflow-x-auto">
+      <div className="bg-panel-surface border border-panel-border rounded-xl overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="text-panel-muted border-b border-panel-border bg-panel-surface">
             <tr>
@@ -440,7 +440,7 @@ export default function CronList() {
 
       {/* Cron directories */}
       {dirEntries.length > 0 && (
-        <div className="bg-panel-surface border border-panel-border rounded-lg p-4">
+        <div className="bg-panel-surface border border-panel-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <FolderOpen size={13} className="text-panel-muted" />
             <span className="text-panel-muted text-xs uppercase tracking-wider">Cron Directories</span>

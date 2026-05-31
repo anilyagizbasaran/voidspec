@@ -41,7 +41,7 @@ export default function NetworkPanel({ stats, hardware }) {
   return (
     <div className="space-y-3">
       {/* Bandwidth Chart */}
-      <div className="bg-panel-surface border border-panel-border rounded-lg p-4">
+      <div className="bg-panel-surface border border-panel-border rounded-xl p-4">
         <div className="flex items-center gap-2 mb-4">
           <Network size={13} className="text-panel-muted" />
           <span className="text-panel-muted text-xs uppercase tracking-wider">Network Bandwidth — Last 60s</span>
@@ -76,7 +76,7 @@ export default function NetworkPanel({ stats, hardware }) {
       </div>
 
       {/* Interface Table */}
-      <div className="bg-panel-surface border border-panel-border rounded-lg p-4">
+      <div className="bg-panel-surface border border-panel-border rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
           <Wifi size={13} className="text-panel-muted" />
           <span className="text-panel-muted text-xs uppercase tracking-wider">Network Interfaces</span>

@@ -84,7 +84,7 @@ export default function ContainerList() {
           {iLoading ? <div className="text-panel-muted text-sm">Loading...</div> : (
             <div className="flex flex-col gap-2">
               {images?.map(img => (
-                <div key={img.id} className="bg-panel-surface border border-panel-border rounded-lg p-3 flex items-center gap-3">
+                <div key={img.id} className="bg-panel-surface border border-panel-border rounded-xl p-3 flex items-center gap-3">
                   <Package size={14} className="text-panel-muted shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-panel-text truncate">{img.tags?.[0] || '<none>'}</div>

@@ -1,27 +1,21 @@
 import React, { useState } from 'react';
-import { Play, Square, RotateCcw, Trash2, ScrollText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, Square, RotateCcw, Trash2, ScrollText, ExternalLink } from 'lucide-react';
 import { useContainerAction } from '../../hooks/useDocker.js';
 import ContainerLogs from './ContainerLogs.jsx';
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  const k = 1024, s = ['B','KB','MB','GB'];
+  const i = Math.floor(Math.log(Math.max(bytes,1)) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k,i)).toFixed(1))} ${s[i]}`;
 }
 
-function StateIndicator({ state }) {
-  const colors = {
-    running: 'bg-panel-green',
-    exited: 'bg-panel-red',
-    paused: 'bg-panel-yellow',
-    created: 'bg-panel-muted',
-  };
-  return (
-    <span className={`inline-block w-2 h-2 rounded-full ${colors[state] || 'bg-panel-muted'}`} />
-  );
-}
+const STATE_CFG = {
+  running: { dot: 'bg-panel-green', badge: 'text-panel-green bg-panel-green/10 border-panel-green/20', label: 'running' },
+  exited:  { dot: 'bg-panel-red',   badge: 'text-panel-red   bg-panel-red/10   border-panel-red/20',   label: 'exited'  },
+  paused:  { dot: 'bg-panel-yellow',badge: 'text-panel-yellow bg-panel-yellow/10 border-panel-yellow/20', label: 'paused' },
+  created: { dot: 'bg-panel-muted', badge: 'text-panel-muted bg-panel-hover border-panel-border',       label: 'created' },
+};
 
 export default function ContainerCard({ container }) {
   const { mutate: action, isPending } = useContainerAction();
@@ -29,6 +23,8 @@ export default function ContainerCard({ container }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   const isRunning = container.state === 'running';
+  const cfg = STATE_CFG[container.state] || STATE_CFG.created;
+  const ports = container.ports?.filter(p => p.PublicPort) || [];
 
   function handleAction(act) {
     if (act === 'remove' && !confirmRemove) {
@@ -41,77 +37,83 @@ export default function ContainerCard({ container }) {
   }
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-lg overflow-hidden">
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
+    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden flex flex-col">
+      {/* Top accent line */}
+      <div className={`h-[2px] ${isRunning ? 'bg-panel-green' : 'bg-panel-red'} opacity-60`} />
+
+      <div className="p-4 flex flex-col gap-3 flex-1">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <StateIndicator state={container.state} />
+            <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot} ${isRunning ? 'shadow-[0_0_6px_currentColor]' : ''}`} />
             <span className="text-panel-text font-medium text-sm truncate">{container.name}</span>
           </div>
-          <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
-            isRunning ? 'bg-panel-green/20 text-panel-green' :
-            container.state === 'exited' ? 'bg-panel-red/20 text-panel-red' :
-            'bg-panel-yellow/20 text-panel-yellow'
-          }`}>
-            {container.state}
+          <span className={`text-[11px] px-2 py-0.5 rounded-full border shrink-0 font-mono ${cfg.badge}`}>
+            {cfg.label}
           </span>
         </div>
 
-        <div className="text-panel-muted text-xs truncate mb-3">{container.image}</div>
+        {/* Image */}
+        <div className="text-panel-muted text-xs font-mono truncate">{container.image}</div>
 
+        {/* Stats row (only when running) */}
         {isRunning && (
-          <div className="flex gap-4 mb-3 text-xs">
-            <div>
-              <span className="text-panel-muted">CPU </span>
-              <span className="text-panel-text">{container.cpu?.toFixed(1)}%</span>
-            </div>
-            <div>
-              <span className="text-panel-muted">MEM </span>
-              <span className="text-panel-text">{formatBytes(container.memory?.used)}</span>
-            </div>
-            {container.ports?.length > 0 && (
-              <div className="truncate">
-                <span className="text-panel-muted">→ </span>
-                <span className="text-panel-text">
-                  {container.ports.filter(p => p.PublicPort).map(p => `${p.PublicPort}:${p.PrivatePort}`).join(', ')}
-                </span>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="bg-panel-bg rounded-lg px-2 py-1.5">
+              <div className="text-panel-muted text-[10px] mb-0.5">CPU</div>
+              <div className={`font-mono font-medium ${(container.cpu||0) > 50 ? 'text-panel-red' : (container.cpu||0) > 20 ? 'text-panel-yellow' : 'text-panel-green'}`}>
+                {container.cpu?.toFixed(1) ?? '0.0'}%
               </div>
-            )}
+            </div>
+            <div className="bg-panel-bg rounded-lg px-2 py-1.5">
+              <div className="text-panel-muted text-[10px] mb-0.5">MEM</div>
+              <div className="font-mono font-medium text-panel-cyan">{formatBytes(container.memory?.used)}</div>
+            </div>
+            <div className="bg-panel-bg rounded-lg px-2 py-1.5">
+              <div className="text-panel-muted text-[10px] mb-0.5">PORTS</div>
+              <div className="font-mono font-medium text-panel-text truncate">
+                {ports.length ? ports.map(p => p.PublicPort).join(', ') : '—'}
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="flex items-center gap-1">
+        {/* Actions */}
+        <div className="flex items-center gap-1 mt-auto pt-1 border-t border-panel-border/50">
           {isRunning ? (
             <button onClick={() => handleAction('stop')} disabled={isPending}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-panel-muted hover:text-panel-red hover:bg-panel-hover rounded transition-colors">
-              <Square size={12} /> Stop
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-panel-muted hover:text-panel-red hover:bg-panel-red/10 rounded-lg transition-colors">
+              <Square size={11} /> Stop
             </button>
           ) : (
             <button onClick={() => handleAction('start')} disabled={isPending}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-panel-muted hover:text-panel-green hover:bg-panel-hover rounded transition-colors">
-              <Play size={12} /> Start
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-panel-muted hover:text-panel-green hover:bg-panel-green/10 rounded-lg transition-colors">
+              <Play size={11} /> Start
             </button>
           )}
           <button onClick={() => handleAction('restart')} disabled={isPending}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-panel-muted hover:text-panel-yellow hover:bg-panel-hover rounded transition-colors">
-            <RotateCcw size={12} /> Restart
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-panel-muted hover:text-panel-yellow hover:bg-panel-yellow/10 rounded-lg transition-colors">
+            <RotateCcw size={11} /> Restart
           </button>
           <button onClick={() => setShowLogs(v => !v)}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-panel-muted hover:text-panel-cyan hover:bg-panel-hover rounded transition-colors">
-            <ScrollText size={12} /> Logs
-            {showLogs ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+            className={`flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg transition-colors ${showLogs ? 'text-panel-cyan bg-panel-cyan/10' : 'text-panel-muted hover:text-panel-cyan hover:bg-panel-cyan/10'}`}>
+            <ScrollText size={11} /> Logs
           </button>
           <button onClick={() => handleAction('remove')} disabled={isPending}
-            className={`ml-auto flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
-              confirmRemove ? 'text-white bg-panel-red' : 'text-panel-muted hover:text-panel-red hover:bg-panel-hover'
+            className={`ml-auto flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg transition-colors ${
+              confirmRemove ? 'text-white bg-panel-red' : 'text-panel-muted hover:text-panel-red hover:bg-panel-red/10'
             }`}>
-            <Trash2 size={12} />
-            {confirmRemove ? 'Confirm' : 'Remove'}
+            <Trash2 size={11} />
+            {confirmRemove ? 'Confirm?' : ''}
           </button>
         </div>
       </div>
 
-      {showLogs && <ContainerLogs id={container.id} />}
+      {showLogs && (
+        <div className="border-t border-panel-border">
+          <ContainerLogs id={container.id} />
+        </div>
+      )}
     </div>
   );
 }

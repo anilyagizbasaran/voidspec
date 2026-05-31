@@ -29,7 +29,7 @@ function KillModal({ proc, onClose, onKill, loading }) {
   const [signal, setSignal] = useState('SIGTERM');
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-lg p-5 w-full max-w-sm">
+      <div className="bg-panel-surface border border-panel-border rounded-xl p-5 w-full max-w-sm">
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle size={16} className="text-panel-yellow" />
           <h3 className="text-panel-text text-sm font-medium">Send Signal</h3>
@@ -190,7 +190,7 @@ export default function ProcessList() {
       </div>
 
       {/* Table */}
-      <div className="bg-panel-surface border border-panel-border rounded-lg overflow-x-auto">
+      <div className="bg-panel-surface border border-panel-border rounded-xl overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="text-panel-muted border-b border-panel-border sticky top-0 bg-panel-surface">
             <tr>

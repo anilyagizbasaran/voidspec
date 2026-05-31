@@ -35,7 +35,7 @@ function LogViewer({ name, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-lg w-full max-w-3xl h-[80vh] flex flex-col">
+      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-3xl h-[80vh] flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-panel-border shrink-0">
           <FileText size={13} className="text-panel-muted" />
           <span className="text-panel-text text-sm font-mono">{name}</span>
@@ -209,7 +209,7 @@ export default function ServiceList() {
       </div>
 
       {/* Table */}
-      <div className="bg-panel-surface border border-panel-border rounded-lg overflow-x-auto flex-1">
+      <div className="bg-panel-surface border border-panel-border rounded-xl overflow-x-auto flex-1">
         <table className="w-full text-xs">
           <thead className="text-panel-muted border-b border-panel-border bg-panel-surface sticky top-0">
             <tr>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Terminal, FolderOpen, Container, Activity, Server, Clock, Shield, Users, Package } from 'lucide-react';
+import { LayoutDashboard, Terminal, FolderOpen, Container, Activity, Server, Clock, Shield, Users, Package, ScrollText } from 'lucide-react';
 import { useStore } from '../../store/useStore.js';
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { id: 'firewall', icon: Shield, label: 'Firewall' },
   { id: 'users', icon: Users, label: 'Users' },
   { id: 'packages', icon: Package, label: 'Packages' },
+  { id: 'logs', icon: ScrollText, label: 'Logs' },
 ];
 
 export default function Sidebar() {

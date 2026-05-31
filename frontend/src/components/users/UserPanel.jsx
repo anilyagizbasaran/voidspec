@@ -40,7 +40,7 @@ function UserDetail({ username, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-lg w-full max-w-xl h-[85vh] flex flex-col">
+      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-xl h-[85vh] flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-panel-border shrink-0">
           <Shield size={13} className="text-panel-muted" />
           <span className="text-panel-text text-sm font-mono font-medium">{username}</span>
@@ -157,7 +157,7 @@ function CreateUserModal({ onClose, onCreate, loading }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-lg w-full max-w-md p-5 flex flex-col gap-4">
+      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-md p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <Users size={14} className="text-panel-muted" />
           <h3 className="text-panel-text text-sm font-medium">Create User</h3>
@@ -230,7 +230,7 @@ function ChangePasswordModal({ username, onClose, onSave, loading }) {
   const [showPw,   setShowPw]   = useState(false);
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-lg w-full max-w-sm p-5 flex flex-col gap-4">
+      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-sm p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <Key size={14} className="text-panel-muted" />
           <h3 className="text-panel-text text-sm font-medium">Change Password — <span className="font-mono">{username}</span></h3>
@@ -326,7 +326,7 @@ export default function UserPanel() {
       </div>
 
       {/* Table */}
-      <div className="bg-panel-surface border border-panel-border rounded-lg overflow-x-auto">
+      <div className="bg-panel-surface border border-panel-border rounded-xl overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="text-panel-muted border-b border-panel-border">
             <tr>
@@ -426,7 +426,7 @@ export default function UserPanel() {
       {/* Delete confirm */}
       {deleteUser && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-panel-surface border border-panel-border rounded-lg w-full max-w-sm p-5 flex flex-col gap-4">
+          <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-sm p-5 flex flex-col gap-4">
             <div className="flex items-center gap-2">
               <AlertTriangle size={14} className="text-panel-yellow" />
               <h3 className="text-panel-text text-sm font-medium">Delete <span className="font-mono">{deleteUser.username}</span>?</h3>
