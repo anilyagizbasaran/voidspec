@@ -200,10 +200,10 @@ export async function fileRoutes(fastify) {
     try {
       await fs.access(targetPath);
       const result = await new Promise((resolve, reject) => {
-        const du = spawn('du', ['-sh', '--', targetPath]);
+        const du = spawn('du', ['-sb', '--', targetPath]);
         let out = '';
         du.stdout.on('data', d => { out += d; });
-        du.on('close', () => resolve(out.split('\t')[0].trim()));
+        du.on('close', () => resolve(parseInt(out.split('\t')[0].trim(), 10) || 0));
         du.on('error', reject);
       });
       reply.send({ path: targetPath, size: result });

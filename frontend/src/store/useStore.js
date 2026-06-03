@@ -8,6 +8,9 @@ export const useStore = create((set) => ({
   activeTab: 'dashboard',
   setActiveTab: (tab) => set({ activeTab: tab }),
 
+  sidebarCollapsed: false,
+  toggleSidebar: () => set(state => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
   terminalTabs: [{ id: '1', title: 'Terminal 1' }],
   activeTerminalTab: '1',
   addTerminalTab: () => set(state => {

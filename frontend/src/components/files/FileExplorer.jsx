@@ -4,9 +4,12 @@ import client from '../../api/client.js';
 import {
   Folder, File, ChevronRight, ArrowLeft, RefreshCw,
   Download, Trash2, FolderPlus, Upload, Eye, X,
-  Link, Pencil, Check, Archive
+  Link, Pencil, Check, Archive, BarChart2
 } from 'lucide-react';
 import { format } from 'date-fns';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
+} from 'recharts';
 
 function formatBytes(bytes) {
   if (!bytes) return '—';
@@ -16,10 +19,76 @@ function formatBytes(bytes) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
+const CHART_COLORS = [
+  '#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b',
+  '#ef4444','#ec4899','#84cc16','#f97316','#14b8a6',
+];
+
+function SizeChart({ items, dirSizes }) {
+  const data = items
+    .map(item => ({
+      name: item.name,
+      bytes: item.type === 'file' ? item.size : (dirSizes[item.path] ?? null),
+      type: item.type,
+    }))
+    .filter(d => d.bytes !== null && d.bytes > 0)
+    .sort((a, b) => b.bytes - a.bytes)
+    .slice(0, 20);
+
+  if (data.length < 2) return null;
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div className="bg-panel-surface border border-panel-border rounded px-2 py-1 text-xs text-panel-text shadow">
+        <p className="font-medium truncate max-w-48">{d.name}</p>
+        <p className="text-panel-muted">{formatBytes(d.bytes)}</p>
+      </div>
+    );
+  };
+
+  const CustomLabel = ({ x, y, width, value }) => {
+    if (width < 40) return null;
+    return (
+      <text x={x + width - 4} y={y + 10} fill="#9ca3af" fontSize={10} textAnchor="end">
+        {formatBytes(value)}
+      </text>
+    );
+  };
+
+  return (
+    <div className="border-b border-panel-border bg-panel-bg px-3 pt-3 pb-2">
+      <p className="text-xs text-panel-muted mb-2 flex items-center gap-1">
+        <BarChart2 size={11} /> Boyut dağılımı
+      </p>
+      <ResponsiveContainer width="100%" height={Math.min(data.length * 22, 300)}>
+        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+          <XAxis type="number" hide />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={120}
+            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tickFormatter={v => v.length > 16 ? v.slice(0, 15) + '…' : v}
+          />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Bar dataKey="bytes" radius={[0, 3, 3, 0]} label={<CustomLabel />}>
+            {data.map((_, i) => (
+              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.8} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export default function FileExplorer() {
   const [path, setPath] = useState('/');
   const [preview, setPreview] = useState(null);
   const [dirSizes, setDirSizes] = useState({});
+  const [showChart, setShowChart] = useState(true);
   const [loadingDu, setLoadingDu] = useState({});
   const [newFolder, setNewFolder] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
@@ -62,7 +131,7 @@ export default function FileExplorer() {
       const res = await client.get('/files/du', { params: { path: dirPath } });
       setDirSizes(s => ({ ...s, [dirPath]: res.data.size }));
     } catch {
-      setDirSizes(s => ({ ...s, [dirPath]: '?' }));
+      setDirSizes(s => ({ ...s, [dirPath]: 0 }));
     } finally {
       setLoadingDu(s => ({ ...s, [dirPath]: false }));
     }
@@ -237,6 +306,9 @@ export default function FileExplorer() {
           <button onClick={() => { setDirSizes({}); refetch(); }} className="text-panel-muted hover:text-panel-text p-1 rounded hover:bg-panel-hover" title="Yenile">
             <RefreshCw size={13} />
           </button>
+          <button onClick={() => setShowChart(v => !v)} className={`p-1 rounded hover:bg-panel-hover ${showChart ? 'text-panel-accent' : 'text-panel-muted hover:text-panel-text'}`} title="Boyut grafiği">
+            <BarChart2 size={13} />
+          </button>
           <button onClick={() => setShowNewFolder(v => !v)} className="text-panel-muted hover:text-panel-text p-1 rounded hover:bg-panel-hover" title="Yeni klasör">
             <FolderPlus size={14} />
           </button>
@@ -298,6 +370,11 @@ export default function FileExplorer() {
           </div>
         )}
 
+        {/* Size chart */}
+        {showChart && data?.items && (
+          <SizeChart items={data.items} dirSizes={dirSizes} />
+        )}
+
         {/* File list */}
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
@@ -347,8 +424,8 @@ export default function FileExplorer() {
                     <td className="hidden sm:table-cell px-3 py-1.5 text-right text-panel-muted whitespace-nowrap">
                       {item.type === 'file'
                         ? formatBytes(item.size)
-                        : dirSizes[item.path]
-                          ? <span className="text-panel-text">{dirSizes[item.path]}</span>
+                        : dirSizes[item.path] != null
+                          ? <span className="text-panel-text">{formatBytes(dirSizes[item.path])}</span>
                           : <span className="text-panel-muted/40 text-xs">{loadingDu[item.path] ? '...' : '—'}</span>
                       }
                     </td>
