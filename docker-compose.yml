@@ -14,8 +14,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root:/root
-    ports:
-      - "3001:3001"
 
   frontend:
     build: ./frontend

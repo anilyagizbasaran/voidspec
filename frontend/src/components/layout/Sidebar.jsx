@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { LayoutDashboard, Terminal, FolderOpen, Container, Activity, Server, Clock, Shield, Package, ScrollText, Cpu } from 'lucide-react';
+import { LayoutDashboard, Terminal, FolderOpen, Container, Activity, Server, Clock, Shield, Package, ScrollText, Cpu, History, MoreHorizontal } from 'lucide-react';
 import { useStore } from '../../store/useStore.js';
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { id: 'firewall',  icon: Shield,           label: 'Firewall'  },
   { id: 'packages',  icon: Package,          label: 'Packages'  },
   { id: 'logs',      icon: ScrollText,       label: 'Logs'      },
+  { id: 'loginhistory', icon: History,       label: 'Giriş Geçmişi' },
 ];
 
 function FloatingLabel({ label, y }) {
@@ -38,10 +39,18 @@ function FloatingLabel({ label, y }) {
   );
 }
 
+// Mobil alt barda doğrudan gösterilecek sekme sayısı; gerisi "Daha fazla" menüsüne düşer.
+const MOBILE_PRIMARY = 7;
+
 export default function Sidebar() {
   const { activeTab, setActiveTab } = useStore();
   const [tooltip, setTooltip] = useState(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const showTimer = useRef(null);
+
+  const primaryItems = navItems.slice(0, MOBILE_PRIMARY);
+  const overflowItems = navItems.slice(MOBILE_PRIMARY);
+  const overflowActive = overflowItems.some(i => i.id === activeTab);
 
   function onEnter(e, label) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -103,12 +112,37 @@ export default function Sidebar() {
       {/* Floating label */}
       {tooltip && <FloatingLabel label={tooltip.label} y={tooltip.y} />}
 
+      {/* ── Mobile: "Daha fazla" açılır menüsü ── */}
+      {moreOpen && (
+        <>
+          <div
+            className="md:hidden fixed inset-0 z-50 bg-black/50"
+            onClick={() => setMoreOpen(false)}
+          />
+          <div className="md:hidden fixed bottom-14 left-0 right-0 z-50 bg-panel-surface border-t border-panel-border p-2 animate-[fadeSlideIn_0.12s_ease-out]">
+            <div className="grid grid-cols-4 gap-1">
+              {overflowItems.map(({ id, icon: Icon, label }) => (
+                <button
+                  key={id}
+                  onClick={() => { setActiveTab(id); setMoreOpen(false); }}
+                  className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-colors
+                    ${activeTab === id ? 'text-panel-accent bg-panel-accent/10' : 'text-panel-muted hover:bg-panel-hover'}`}
+                >
+                  <Icon size={18} />
+                  <span className="text-[9px] font-medium text-center leading-tight">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ── Mobile: bottom nav ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-panel-surface border-t border-panel-border flex items-center justify-around h-14 px-1">
-        {navItems.slice(0, 8).map(({ id, icon: Icon, label }) => (
+        {primaryItems.map(({ id, icon: Icon, label }) => (
           <button
             key={id}
-            onClick={() => setActiveTab(id)}
+            onClick={() => { setActiveTab(id); setMoreOpen(false); }}
             className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors
               ${activeTab === id ? 'text-panel-accent' : 'text-panel-muted'}`}
           >
@@ -116,6 +150,14 @@ export default function Sidebar() {
             <span className="text-[9px] font-medium">{label}</span>
           </button>
         ))}
+        <button
+          onClick={() => setMoreOpen(o => !o)}
+          className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors
+            ${moreOpen || overflowActive ? 'text-panel-accent' : 'text-panel-muted'}`}
+        >
+          <MoreHorizontal size={18} />
+          <span className="text-[9px] font-medium">Daha fazla</span>
+        </button>
       </nav>
     </>
   );

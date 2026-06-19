@@ -22,7 +22,11 @@ import { userRoutes } from './users/routes.js';
 import { packageRoutes } from './packages/routes.js';
 import { logRoutes } from './logs/routes.js';
 
-const fastify = Fastify({ logger: true });
+// trustProxy: sadece iç ağdaki (Docker private) nginx'e güven. Böylece
+// gerçek istemci IP'si X-Forwarded-For'dan doğru alınır ama dışarıdan gelen
+// sahte X-Forwarded-For başlıkları (IP spoofing ile log/lockout atlatma)
+// kabul edilmez.
+const fastify = Fastify({ logger: true, trustProxy: 'uniquelocal' });
 
 // Decorate authenticate
 fastify.decorate('authenticate', authenticate);
@@ -36,7 +40,7 @@ await fastify.register(fastifyCookie);
 
 await fastify.register(fastifyJwt, {
   secret: config.jwtSecret,
-  cookie: { cookieName: 'token', signed: false },
+  cookie: { cookieName: 'sp_token', signed: false },
 });
 
 await fastify.register(fastifyRateLimit, {

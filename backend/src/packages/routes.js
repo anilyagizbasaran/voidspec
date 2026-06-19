@@ -64,7 +64,9 @@ export async function packageRoutes(fastify) {
     }
 
     const total = pkgs.length;
-    const page  = pkgs.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
+    const lim = Math.max(1, Math.min(parseInt(limit, 10) || 200, 1000));
+    const off = Math.max(0, parseInt(offset, 10) || 0);
+    const page  = pkgs.slice(off, off + lim);
     reply.send({ packages: page, total });
   });
 

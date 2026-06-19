@@ -39,7 +39,7 @@ export function useTerminal(containerRef, tabId) {
         brightCyan: '#56d4dd',
         brightWhite: '#f0f6fc',
       },
-      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
       fontSize: isMobile ? 14 : 13,
       lineHeight: 1.4,
       cursorBlink: true,
@@ -58,73 +58,96 @@ export function useTerminal(containerRef, tabId) {
     termRef.current = term;
     fitRef.current = fitAddon;
 
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const existingSessionId = sessionStorage.getItem(SESSION_KEY(tabId));
-    const wsUrl = existingSessionId
-      ? `${proto}://${location.host}/ws/terminal?sessionId=${existingSessionId}`
-      : `${proto}://${location.host}/ws/terminal`;
+    let destroyed = false;
+    let reconnectAttempts = 0;
+    let reconnectTimer = null;
 
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      const sid = sessionStorage.getItem(SESSION_KEY(tabId));
+      const url = sid
+        ? `${proto}://${location.host}/ws/terminal?sessionId=${sid}`
+        : `${proto}://${location.host}/ws/terminal`;
 
-    ws.onmessage = e => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === 'session') {
-        sessionStorage.setItem(SESSION_KEY(tabId), msg.sessionId);
-      } else if (msg.type === 'data') {
-        term.write(msg.data, () => term.scrollToBottom());
-      } else if (msg.type === 'exit') {
-        term.write('\r\n[session ended]\r\n');
-        sessionStorage.removeItem(SESSION_KEY(tabId));
-      }
-    };
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
 
-    ws.onopen = () => {
-      fitAddon.fit();
-      ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
-    };
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'session') {
+          sessionStorage.setItem(SESSION_KEY(tabId), msg.sessionId);
+          reconnectAttempts = 0;
+        } else if (msg.type === 'data') {
+          term.write(msg.data, () => term.scrollToBottom());
+        } else if (msg.type === 'exit') {
+          term.write('\r\n[session ended]\r\n');
+          sessionStorage.removeItem(SESSION_KEY(tabId));
+        }
+      };
+
+      ws.onopen = () => {
+        fitAddon.fit();
+        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+      };
+
+      ws.onclose = () => {
+        if (destroyed) return;
+        if (reconnectAttempts >= 5) {
+          term.write('\r\n\x1b[31m[Connection lost. Refresh to reconnect.]\x1b[0m\r\n');
+          return;
+        }
+        reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 8000);
+        term.write(`\r\n\x1b[33m[Reconnecting... (${reconnectAttempts}/5)]\x1b[0m\r\n`);
+        reconnectTimer = setTimeout(() => {
+          if (!destroyed) connect();
+        }, delay);
+      };
+    }
+
+    connect();
 
     term.onData(data => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'input', data }));
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'input', data }));
       }
     });
 
     containerRef.current.addEventListener('paste', e => {
       const text = e.clipboardData?.getData('text');
-      if (text && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'input', data: text }));
+      if (text && wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'input', data: text }));
       }
       e.preventDefault();
     });
 
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit();
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
       }
     });
     resizeObserver.observe(containerRef.current);
 
-    // Mobil: dokunuşta klavyeyi aç
     const onTouch = () => term.focus();
     containerRef.current.addEventListener('touchstart', onTouch, { passive: true });
 
-    // Mobil: klavye açılınca/kapanınca viewport küçülür, terminali yeniden fit et
     const onViewportResize = () => {
       requestAnimationFrame(() => {
         fitAddon.fit();
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
         }
       });
     };
     window.visualViewport?.addEventListener('resize', onViewportResize);
 
     return () => {
+      destroyed = true;
+      clearTimeout(reconnectTimer);
       resizeObserver.disconnect();
       window.visualViewport?.removeEventListener('resize', onViewportResize);
-      ws.close();
+      wsRef.current?.close();
       term.dispose();
     };
   }, [tabId]);
@@ -132,7 +155,6 @@ export function useTerminal(containerRef, tabId) {
   return { term: termRef, ws: wsRef };
 }
 
-// Tab kapatılırken session'ı temizlemek için dışarıdan çağrılır
 export function clearTerminalSession(tabId) {
   sessionStorage.removeItem(SESSION_KEY(tabId));
 }

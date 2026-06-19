@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Server, Search, X, RefreshCw, Play, Square, RotateCcw, FileText, ChevronDown, ChevronRight, Power } from 'lucide-react';
 import { useServices, useServiceAction, useServiceLogs, useServiceStatus } from '../../hooks/useServices.js';
 
@@ -32,10 +32,19 @@ const ENABLED_COLOR = {
 function LogViewer({ name, onClose }) {
   const { data, isLoading } = useServiceLogs(name, true);
   const { data: statusData } = useServiceStatus(name, true);
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    function handleOut(e) {
+      if (panelRef.current && !panelRef.current.contains(e.target)) onClose();
+    }
+    document.addEventListener('mousedown', handleOut);
+    return () => document.removeEventListener('mousedown', handleOut);
+  }, [onClose]);
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-3xl h-[80vh] flex flex-col">
+      <div ref={panelRef} className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-3xl h-[80vh] flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-panel-border shrink-0">
           <FileText size={13} className="text-panel-muted" />
           <span className="text-panel-text text-sm font-mono">{name}</span>

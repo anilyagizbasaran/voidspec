@@ -75,7 +75,7 @@ function attachSocket(session, sessionId, socket) {
 export async function terminalWs(fastify) {
   fastify.get('/ws/terminal', { websocket: true }, (socket, req) => {
     try {
-      const token = req.cookies?.token;
+      const token = req.cookies?.sp_token;
       if (!token) { socket.send(JSON.stringify({ type: 'error', data: 'Unauthorized' })); socket.close(); return; }
       fastify.jwt.verify(token);
     } catch {

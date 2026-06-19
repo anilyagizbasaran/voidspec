@@ -5,7 +5,7 @@ const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 export async function dockerLogsWs(fastify) {
   fastify.get('/ws/docker/logs/:id', { websocket: true }, async (socket, req) => {
     try {
-      const token = req.cookies?.token;
+      const token = req.cookies?.sp_token;
       if (!token) throw new Error('Unauthorized');
       fastify.jwt.verify(token);
     } catch {

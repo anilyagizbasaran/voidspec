@@ -12,8 +12,8 @@ function formatBytes(bytes) {
 }
 
 export default function ContainerList() {
-  const { data: containers, isLoading: cLoading, refetch: refetchC } = useContainers();
-  const { data: images, isLoading: iLoading, refetch: refetchI } = useImages();
+  const { data: containers, isLoading: cLoading, isError: cError, refetch: refetchC } = useContainers();
+  const { data: images, isLoading: iLoading, isError: iError, refetch: refetchI } = useImages();
   const { mutate: imageAction, isPending } = useImageAction();
   const [pullImage, setPullImage] = useState('');
   const [tab, setTab] = useState('containers');
@@ -54,7 +54,13 @@ export default function ContainerList() {
 
       {tab === 'containers' && (
         cLoading ? (
-          <div className="text-panel-muted text-sm">Loading...</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-24 bg-panel-surface border border-panel-border rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : cError ? (
+          <div className="text-panel-red text-sm py-8 text-center">Failed to load containers</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {containers?.map(c => <ContainerCard key={c.id} container={c} />)}
@@ -81,7 +87,15 @@ export default function ContainerList() {
             </button>
           </div>
 
-          {iLoading ? <div className="text-panel-muted text-sm">Loading...</div> : (
+          {iLoading ? (
+            <div className="flex flex-col gap-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-12 bg-panel-surface border border-panel-border rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : iError ? (
+            <div className="text-panel-red text-sm py-4 text-center">Failed to load images</div>
+          ) : (
             <div className="flex flex-col gap-2">
               {images?.map(img => (
                 <div key={img.id} className="bg-panel-surface border border-panel-border rounded-xl p-3 flex items-center gap-3">

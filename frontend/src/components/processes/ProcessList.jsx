@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Activity, Search, AlertTriangle, X, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
 import { useProcesses, useKillProcess } from '../../hooks/useProcesses.js';
 
@@ -27,9 +27,19 @@ function SortIcon({ col, sortBy, sortDir }) {
 
 function KillModal({ proc, onClose, onKill, loading }) {
   const [signal, setSignal] = useState('SIGTERM');
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    function handleOut(e) {
+      if (panelRef.current && !panelRef.current.contains(e.target)) onClose();
+    }
+    document.addEventListener('mousedown', handleOut);
+    return () => document.removeEventListener('mousedown', handleOut);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl p-5 w-full max-w-sm">
+      <div ref={panelRef} className="bg-panel-surface border border-panel-border rounded-xl p-5 w-full max-w-sm">
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle size={16} className="text-panel-yellow" />
           <h3 className="text-panel-text text-sm font-medium">Send Signal</h3>

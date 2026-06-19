@@ -1,7 +1,8 @@
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from 'fs';
 
 const NS = 'nsenter --mount=/proc/1/ns/mnt --';
+const NS_ARGS = ['--mount=/proc/1/ns/mnt', '--'];
 
 function run(cmd) {
   try {
@@ -11,6 +12,13 @@ function run(cmd) {
 
 function runOrThrow(cmd) {
   return execSync(`${NS} ${cmd}`, { timeout: 8000 }).toString().trim();
+}
+
+function runWithInput(cmdArgs, input) {
+  return execFileSync('nsenter', [...NS_ARGS, ...cmdArgs], {
+    input,
+    timeout: 8000,
+  }).toString().trim();
 }
 
 const USERNAME_RE = /^[a-z_][a-z0-9_-]{0,31}$/;
@@ -116,7 +124,7 @@ export async function userRoutes(fastify) {
     const safeComment = comment.replace(/[:']/g, '').slice(0, 60);
 
     runOrThrow(`useradd -m -s ${safeShell}${safeComment ? ` -c '${safeComment}'` : ''} ${username}`);
-    runOrThrow(`bash -c "echo '${username}:${password.replace(/'/g, "\\'")}' | chpasswd"`);
+    runWithInput(['chpasswd'], `${username}:${password}`);
     if (wantSudo) runOrThrow(`usermod -aG sudo ${username}`);
 
     fastify.log.info({ username }, 'User created');
@@ -152,7 +160,7 @@ export async function userRoutes(fastify) {
     if (!password || password.length < 8)
       return reply.code(400).send({ error: 'Password must be at least 8 characters' });
 
-    runOrThrow(`bash -c "echo '${username}:${password.replace(/'/g, "\\'")}' | chpasswd"`);
+    runWithInput(['chpasswd'], `${username}:${password}`);
     fastify.log.info({ username }, 'Password changed');
     reply.send({ ok: true });
   });
@@ -198,9 +206,16 @@ export async function userRoutes(fastify) {
     run(`touch ${authFile}`);
     run(`chmod 600 ${authFile}`);
 
-    // Append key via tee
-    const safeKey = key.replace(/'/g, '').trim();
-    runOrThrow(`bash -c "echo '${safeKey}' >> ${authFile}"`);
+    const existingKeys = getSSHKeys(username, user.home);
+    if (existingKeys.some(k => k.raw === key.trim())) {
+      return reply.code(409).send({ error: 'SSH key already exists' });
+    }
+
+    execFileSync('nsenter', [...NS_ARGS, 'tee', '-a', authFile], {
+      input: key.trim() + '\n',
+      timeout: 8000,
+      stdio: ['pipe', 'ignore', 'pipe'],
+    });
     run(`chown -R ${username}:${username} ${sshDir}`);
 
     fastify.log.info({ username }, 'SSH key added');
@@ -219,7 +234,7 @@ export async function userRoutes(fastify) {
 
     const authFile = `${user.home}/.ssh/authorized_keys`;
     const keys = getSSHKeys(username, user.home);
-    if (idx < 0 || idx >= keys.length) return reply.code(404).send({ error: 'Key not found' });
+    if (isNaN(idx) || idx < 0 || idx >= keys.length) return reply.code(404).send({ error: 'Key not found' });
 
     const remaining = keys.filter((_, i) => i !== idx).map(k => k.raw);
     run(`bash -c "printf '%s\n' ${remaining.map(k => `'${k.replace(/'/g,'')}'`).join(' ')} > ${authFile}"`);

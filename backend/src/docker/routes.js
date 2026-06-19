@@ -107,9 +107,13 @@ export async function dockerRoutes(fastify) {
 
     try {
       await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Pull timeout (5 min)')), 5 * 60 * 1000);
         docker.pull(image, (err, stream) => {
-          if (err) return reject(err);
-          docker.modem.followProgress(stream, (err) => err ? reject(err) : resolve());
+          if (err) { clearTimeout(timer); return reject(err); }
+          docker.modem.followProgress(stream, (err) => {
+            clearTimeout(timer);
+            err ? reject(err) : resolve();
+          });
         });
       });
       reply.send({ ok: true });

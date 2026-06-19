@@ -143,12 +143,14 @@ export async function cronRoutes(fastify) {
 
   fastify.post('/api/cron', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const { schedule, command } = req.body || {};
-    if (!schedule?.trim() || !command?.trim()) {
+    const cleanSchedule = schedule?.trim().replace(/[\r\n]/g, '') || '';
+    const cleanCommand = command?.trim().replace(/[\r\n]/g, '') || '';
+    if (!cleanSchedule || !cleanCommand) {
       return reply.code(400).send({ error: 'schedule and command required' });
     }
 
     const lines = getRootCrontabLines();
-    const newLine = `${schedule.trim()} ${command.trim()}`;
+    const newLine = `${cleanSchedule} ${cleanCommand}`;
     // Remove trailing empty line if present, append, re-add newline
     const trimmed = lines.filter((l, i) => !(i === lines.length - 1 && l === ''));
     trimmed.push(newLine);
@@ -169,7 +171,7 @@ export async function cronRoutes(fastify) {
 
     const idx = parseInt(idxStr, 10);
     const lines = getRootCrontabLines();
-    if (idx < 0 || idx >= lines.length) {
+    if (isNaN(idx) || idx < 0 || idx >= lines.length) {
       return reply.code(404).send({ error: 'Job not found' });
     }
 
@@ -180,7 +182,9 @@ export async function cronRoutes(fastify) {
 
     let newLine;
     if (schedule !== undefined && command !== undefined) {
-      newLine = `${schedule.trim()} ${command.trim()}`;
+      const cleanSchedule = schedule.trim().replace(/[\r\n]/g, '');
+      const cleanCommand = command.trim().replace(/[\r\n]/g, '');
+      newLine = `${cleanSchedule} ${cleanCommand}`;
     } else {
       newLine = baseContent;
     }
@@ -204,7 +208,7 @@ export async function cronRoutes(fastify) {
 
     const idx = parseInt(idxStr, 10);
     const lines = getRootCrontabLines();
-    if (idx < 0 || idx >= lines.length) {
+    if (isNaN(idx) || idx < 0 || idx >= lines.length) {
       return reply.code(404).send({ error: 'Job not found' });
     }
 

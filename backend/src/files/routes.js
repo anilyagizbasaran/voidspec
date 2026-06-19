@@ -7,7 +7,8 @@ import { get as httpGet } from 'http';
 import { get as httpsGet } from 'https';
 
 function safePath(requestedPath) {
-  const normalized = path.normalize(requestedPath);
+  const normalized = path.normalize(requestedPath || '/');
+  if (!path.isAbsolute(normalized)) return '/';
   return normalized;
 }
 
@@ -126,6 +127,76 @@ export async function fileRoutes(fastify) {
     }
 
     reply.send({ ok: true, uploaded });
+  });
+
+  // Smart disk overview — groups paths into meaningful categories
+  fastify.get('/api/files/smart-overview', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const CATEGORIES = [
+      { id: 'system',   label: 'Sistem',            paths: ['/usr', '/lib', '/lib64', '/lib32', '/bin', '/sbin', '/boot'] },
+      { id: 'apps',     label: 'Uygulamalar',        paths: ['/opt', '/snap', '/var/cache/apt', '/var/lib/dpkg', '/var/lib/apt'] },
+      { id: 'docker',   label: 'Docker',             paths: ['/var/lib/docker'] },
+      { id: 'userdata', label: 'Kullanıcı Verileri', paths: ['/home', '/root'] },
+      { id: 'web',      label: 'Web & Servisler',    paths: ['/var/www', '/srv'] },
+      { id: 'logs',     label: 'Loglar',             paths: ['/var/log'] },
+      { id: 'config',   label: 'Yapılandırma',       paths: ['/etc'] },
+      { id: 'temp',     label: 'Geçici Dosyalar',    paths: ['/tmp', '/var/tmp'] },
+    ];
+
+    async function duSize(p) {
+      return new Promise((resolve) => {
+        const proc = spawn('du', ['-sb', '--', p]);
+        let out = '';
+        proc.stdout.on('data', d => { out += d; });
+        proc.on('close', () => resolve(parseInt(out.split('\t')[0], 10) || 0));
+        proc.on('error', () => resolve(0));
+        setTimeout(() => { try { proc.kill(); } catch {} resolve(0); }, 12000);
+      });
+    }
+
+    const [categories, disk] = await Promise.all([
+      Promise.all(
+        CATEGORIES.map(async (cat) => {
+          const parts = await Promise.all(
+            cat.paths.map(async (p) => {
+              try { await fs.access(p); return { path: p, size: await duSize(p) }; }
+              catch { return null; }
+            })
+          );
+          const existing = parts.filter(Boolean);
+          const size = existing.reduce((s, e) => s + e.size, 0);
+          if (size === 0) return null;
+          return { ...cat, size, primaryPath: existing[0].path, paths: existing.map(e => e.path) };
+        })
+      ),
+      new Promise((resolve) => {
+        const df = spawn('df', ['-B1', '/']);
+        let out = '';
+        df.stdout.on('data', d => { out += d; });
+        df.on('close', () => {
+          const parts = (out.trim().split('\n')[1] ?? '').split(/\s+/);
+          const total = parseInt(parts[1], 10);
+          const used  = parseInt(parts[2], 10);
+          const avail = parseInt(parts[3], 10);
+          resolve(total ? { total, used, avail } : null);
+        });
+        df.on('error', () => resolve(null));
+      }),
+    ]);
+
+    reply.send({ categories: categories.filter(Boolean), disk });
+  });
+
+  // Copy
+  fastify.post('/api/files/copy', { onRequest: [fastify.authenticate] }, async (req, reply) => {
+    const from = safePath(req.body.from || '');
+    const to = safePath(req.body.to || '');
+    if (!from || !to) return reply.code(400).send({ error: 'from and to required' });
+    try {
+      await fs.cp(from, to, { recursive: true });
+      reply.send({ ok: true });
+    } catch (err) {
+      reply.code(400).send({ error: err.message });
+    }
   });
 
   // Rename / move
