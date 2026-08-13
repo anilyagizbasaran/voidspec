@@ -16,7 +16,8 @@ FROM nginx:alpine
 RUN apk add --no-cache openssl
 
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.docker.conf /etc/nginx/conf.d/default.conf
+# conf.d yerine templates: entrypoint envsubst ile PANEL_HTTPS_PORT'u yazar.
+COPY default.conf.template /etc/nginx/templates/default.conf.template
 COPY panel-locations.conf /etc/nginx/snippets/panel-locations.conf
 COPY 40-selfsigned-cert.sh /docker-entrypoint.d/40-selfsigned-cert.sh
 RUN chmod +x /docker-entrypoint.d/40-selfsigned-cert.sh
