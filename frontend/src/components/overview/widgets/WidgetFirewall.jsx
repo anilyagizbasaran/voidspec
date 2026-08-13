@@ -6,8 +6,11 @@ import client from '../../../api/client.js';
 import { StatusCard } from '../cards.jsx';
 
 const WidgetFirewall = React.memo(function WidgetFirewall() {
+  // Firewall paneliyle aynı key: ayrı key'ler (['fw-status'] / ['firewall'])
+  // React Query'nin tekilleştirmesini engelliyor, aynı pahalı endpoint iki
+  // ayrı zamanlayıcıdan çağrılıyordu.
   const { data: fw } = useQuery({
-    queryKey: ['fw-status'],
+    queryKey: ['firewall'],
     queryFn: () => client.get('/firewall/status').then(r => r.data),
     refetchInterval: 30000,
   });

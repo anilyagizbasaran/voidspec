@@ -1,4 +1,4 @@
-import { hostSync, hostSyncOrThrow, hostWithInput } from '../lib/host.js';
+import { host, hostOrThrow, hostInput } from '../lib/host.js';
 
 const USERNAME_RE = /^[a-z_][a-z0-9_-]{0,31}$/;
 
@@ -7,24 +7,42 @@ export function validateUsername(name) {
     throw { code: 400, message: 'Invalid username (lowercase letters, digits, dash, underscore; max 32 chars)' };
 }
 
-function parsePasswd() {
-  const raw = hostSync(['getent', 'passwd']);
+// Kullanıcı başına 3 host komutu çalışıyor; hepsini aynı anda başlatmak büyük
+// makinelerde yüzlerce süreç demek. Aynı anda en fazla LIMIT kadar iş.
+const LIMIT = 8;
+async function mapLimit(items, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(LIMIT, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+async function parsePasswd() {
+  const { stdout: raw } = await host(['getent', 'passwd']);
   return raw.split('\n').filter(Boolean).map(line => {
     const [username, , uid, gid, gecos, home, shell] = line.split(':');
     return { username, uid: parseInt(uid), gid: parseInt(gid), gecos, home, shell };
   });
 }
 
-function getUserGroups(username) {
-  return hostSync(['id', '-nG', username]).split(' ').filter(Boolean);
+async function getUserGroups(username) {
+  const { stdout } = await host(['id', '-nG', username]);
+  return stdout.split(' ').filter(Boolean);
 }
 
-function isLocked(username) {
-  return hostSync(['passwd', '-S', username]).split(' ')[1] === 'L';
+async function isLocked(username) {
+  const { stdout } = await host(['passwd', '-S', username]);
+  return stdout.split(' ')[1] === 'L';
 }
 
-function getLastLogin(username) {
-  const out = hostSync(['last', username, '-n', '3', '--time-format', 'iso']);
+async function getLastLogin(username) {
+  const { stdout: out } = await host(['last', username, '-n', '3', '--time-format', 'iso']);
   return out.split('\n')
     .filter(l => l.startsWith(username))
     .map(l => {
@@ -44,19 +62,51 @@ function isInteractive(user) {
   return user.uid === 0 || user.uid >= 1000 || LOGIN_SHELLS.includes(user.shell);
 }
 
+// Liste 30 saniyede bir yoklanıyor ama kullanıcı tablosu neredeyse hiç
+// değişmiyor; kısa cache ile gereksiz host komutlarını kesiyoruz.
+const LIST_TTL_MS = 10000;
+let listCache = { at: 0, data: null };
+let listInFlight = null;
+
+async function collectUsers() {
+  const all = (await parsePasswd()).filter(isInteractive);
+  return mapLimit(all, async (u) => {
+    const [groups, locked, logins] = await Promise.all([
+      getUserGroups(u.username),
+      isLocked(u.username),
+      getLastLogin(u.username),
+    ]);
+    return { ...u, groups, locked, lastLogin: logins[0] || null };
+  });
+}
+
+function invalidateList() {
+  listCache = { at: 0, data: null };
+}
+
+async function getUsers() {
+  if (listCache.data && Date.now() - listCache.at < LIST_TTL_MS) return listCache.data;
+  if (!listInFlight) {
+    listInFlight = collectUsers()
+      .then(data => {
+        listCache = { at: Date.now(), data };
+        return data;
+      })
+      .finally(() => { listInFlight = null; });
+  }
+  return listInFlight;
+}
+
+async function findUser(username) {
+  return (await parsePasswd()).find(u => u.username === username);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 export async function userRoutes(fastify) {
 
   // List users
   fastify.get('/api/users', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    const all = parsePasswd().filter(isInteractive);
-    const users = all.map(u => ({
-      ...u,
-      groups:  getUserGroups(u.username),
-      locked:  isLocked(u.username),
-      lastLogin: getLastLogin(u.username)[0] || null,
-    }));
-    reply.send({ users });
+    reply.send({ users: await getUsers() });
   });
 
   // User detail
@@ -64,17 +114,17 @@ export async function userRoutes(fastify) {
     const { username } = req.params;
     try { validateUsername(username); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
 
-    const all = parsePasswd();
-    const user = all.find(u => u.username === username);
+    const user = await findUser(username);
     if (!user) return reply.code(404).send({ error: 'User not found' });
 
-    reply.send({
-      ...user,
-      groups:   getUserGroups(username),
-      locked:   isLocked(username),
-      sshKeys:  getSSHKeys(user.home),
-      logins:   getLastLogin(username),
-    });
+    const [groups, locked, sshKeys, logins] = await Promise.all([
+      getUserGroups(username),
+      isLocked(username),
+      getSSHKeys(user.home),
+      getLastLogin(username),
+    ]);
+
+    reply.send({ ...user, groups, locked, sshKeys, logins });
   });
 
   // Create user
@@ -87,8 +137,7 @@ export async function userRoutes(fastify) {
     if (!password || password.length < 8)
       return reply.code(400).send({ error: 'Password must be at least 8 characters' });
 
-    const existing = parsePasswd().find(u => u.username === username);
-    if (existing) return reply.code(409).send({ error: 'Username already exists' });
+    if (await findUser(username)) return reply.code(409).send({ error: 'Username already exists' });
 
     const safeShell = LOGIN_SHELLS.includes(shell) ? shell : '/bin/bash';
     // Argümanlar shell'den geçmediği için tırnak kaçırmaya gerek yok; sadece
@@ -99,10 +148,11 @@ export async function userRoutes(fastify) {
     if (safeComment) args.push('-c', safeComment);
     args.push(username);
 
-    hostSyncOrThrow(args);
-    hostWithInput(['chpasswd'], `${username}:${password}\n`);
-    if (wantSudo) hostSyncOrThrow(['usermod', '-aG', 'sudo', username]);
+    await hostOrThrow(args);
+    await hostInput(['chpasswd'], `${username}:${password}\n`);
+    if (wantSudo) await hostOrThrow(['usermod', '-aG', 'sudo', username]);
 
+    invalidateList();
     fastify.log.info({ username }, 'User created');
     reply.send({ ok: true });
   });
@@ -117,10 +167,10 @@ export async function userRoutes(fastify) {
     try { validateUsername(username); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
     if (username === 'root') return reply.code(403).send({ error: 'Cannot delete root' });
 
-    const user = parsePasswd().find(u => u.username === username);
-    if (!user) return reply.code(404).send({ error: 'User not found' });
+    if (!await findUser(username)) return reply.code(404).send({ error: 'User not found' });
 
-    hostSyncOrThrow(removeHome === 'true' ? ['userdel', '-r', username] : ['userdel', username]);
+    await hostOrThrow(removeHome === 'true' ? ['userdel', '-r', username] : ['userdel', username]);
+    invalidateList();
     fastify.log.info({ username, removeHome }, 'User deleted');
     reply.send({ ok: true });
   });
@@ -136,10 +186,9 @@ export async function userRoutes(fastify) {
     if (!password || password.length < 8)
       return reply.code(400).send({ error: 'Password must be at least 8 characters' });
 
-    const user = parsePasswd().find(u => u.username === username);
-    if (!user) return reply.code(404).send({ error: 'User not found' });
+    if (!await findUser(username)) return reply.code(404).send({ error: 'User not found' });
 
-    hostWithInput(['chpasswd'], `${username}:${password}\n`);
+    await hostInput(['chpasswd'], `${username}:${password}\n`);
     fastify.log.info({ username }, 'Password changed');
     reply.send({ ok: true });
   });
@@ -151,7 +200,8 @@ export async function userRoutes(fastify) {
     try { validateUsername(username); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
     if (username === 'root') return reply.code(403).send({ error: 'Cannot lock root' });
 
-    hostSyncOrThrow(['passwd', lock ? '-l' : '-u', username]);
+    await hostOrThrow(['passwd', lock ? '-l' : '-u', username]);
+    invalidateList();
     fastify.log.info({ username, lock }, 'User lock toggled');
     reply.send({ ok: true });
   });
@@ -160,9 +210,9 @@ export async function userRoutes(fastify) {
   fastify.get('/api/users/:username/ssh-keys', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const { username } = req.params;
     try { validateUsername(username); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
-    const user = parsePasswd().find(u => u.username === username);
+    const user = await findUser(username);
     if (!user) return reply.code(404).send({ error: 'User not found' });
-    reply.send({ keys: getSSHKeys(user.home) });
+    reply.send({ keys: await getSSHKeys(user.home) });
   });
 
   fastify.post('/api/users/:username/ssh-keys', {
@@ -175,21 +225,21 @@ export async function userRoutes(fastify) {
     if (!key || !isValidSSHKey(key))
       return reply.code(400).send({ error: 'Invalid SSH public key' });
 
-    const user = parsePasswd().find(u => u.username === username);
+    const user = await findUser(username);
     if (!user) return reply.code(404).send({ error: 'User not found' });
 
     const sshDir = `${user.home}/.ssh`;
     const authFile = `${sshDir}/authorized_keys`;
 
-    const existingKeys = getSSHKeys(user.home);
+    const existingKeys = await getSSHKeys(user.home);
     if (existingKeys.some(k => k.raw === key.trim())) {
       return reply.code(409).send({ error: 'SSH key already exists' });
     }
 
-    hostSync(['mkdir', '-p', sshDir]);
-    hostSync(['chmod', '700', sshDir]);
-    writeAuthorizedKeys(authFile, [...existingKeys.map(k => k.raw), key.trim()]);
-    hostSync(['chown', '-R', `${username}:${username}`, sshDir]);
+    await host(['mkdir', '-p', sshDir]);
+    await host(['chmod', '700', sshDir]);
+    await writeAuthorizedKeys(authFile, [...existingKeys.map(k => k.raw), key.trim()]);
+    await host(['chown', '-R', `${username}:${username}`, sshDir]);
 
     fastify.log.info({ username }, 'SSH key added');
     reply.send({ ok: true });
@@ -202,13 +252,13 @@ export async function userRoutes(fastify) {
     const idx = parseInt(req.params.idx, 10);
     try { validateUsername(username); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
 
-    const user = parsePasswd().find(u => u.username === username);
+    const user = await findUser(username);
     if (!user) return reply.code(404).send({ error: 'User not found' });
 
-    const keys = getSSHKeys(user.home);
+    const keys = await getSSHKeys(user.home);
     if (isNaN(idx) || idx < 0 || idx >= keys.length) return reply.code(404).send({ error: 'Key not found' });
 
-    writeAuthorizedKeys(
+    await writeAuthorizedKeys(
       `${user.home}/.ssh/authorized_keys`,
       keys.filter((_, i) => i !== idx).map(k => k.raw),
     );
@@ -219,8 +269,8 @@ export async function userRoutes(fastify) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function getSSHKeys(home) {
-  const raw = hostSync(['cat', `${home}/.ssh/authorized_keys`]);
+async function getSSHKeys(home) {
+  const { stdout: raw } = await host(['cat', `${home}/.ssh/authorized_keys`]);
   return raw.split('\n').filter(Boolean).map((line, idx) => {
     const parts = line.trim().split(/\s+/);
     return {
@@ -239,12 +289,10 @@ function getSSHKeys(home) {
 // bir shell'den geçerek yapılıyordu: bir anahtarın yorum alanındaki $(...) veya
 // backtick, dosya yazılırken komut olarak çalışıyordu. Artık içerik hiçbir
 // shell'den geçmiyor.
-function writeAuthorizedKeys(authFile, keys) {
+async function writeAuthorizedKeys(authFile, keys) {
   const content = keys.filter(Boolean).join('\n');
-  hostWithInput(['tee', authFile], content ? content + '\n' : '', {
-    stdio: ['pipe', 'ignore', 'pipe'],
-  });
-  hostSync(['chmod', '600', authFile]);
+  await hostInput(['tee', authFile], content ? content + '\n' : '');
+  await host(['chmod', '600', authFile]);
 }
 
 const SSH_KEY_TYPES = ['ssh-rsa', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'sk-ssh-ed25519@openssh.com'];

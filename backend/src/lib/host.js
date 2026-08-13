@@ -1,4 +1,4 @@
-import { execFile, execFileSync, spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
@@ -49,25 +49,51 @@ export async function hostOrThrow(argv, opts = {}) {
   return { stdout: stdout.toString().trim(), stderr: stderr.toString().trim() };
 }
 
-// Senkron varyant — hata durumunda yakalanmış stdout'u döner (eski `run()` davranışı).
-export function hostSync(argv, opts = {}) {
-  try {
-    return execFileSync(NSENTER, [...NS_ARGS, ...argv], baseOpts(opts)).toString().trim();
-  } catch (err) {
-    return err.stdout?.toString().trim() || '';
-  }
-}
-
-export function hostSyncOrThrow(argv, opts = {}) {
-  return execFileSync(NSENTER, [...NS_ARGS, ...argv], baseOpts(opts)).toString().trim();
-}
+// NOT: Bilerek senkron (execFileSync) bir varyant sunulmuyor. Her nsenter
+// çağrısı 50-350 ms sürüyor; senkron çalıştırıldığında bu süre boyunca tüm
+// event loop bloke oluyordu — açık terminaller donuyor, diğer istekler
+// sıraya giriyor, healthcheck zaman aşımına düşebiliyordu.
 
 // stdin üzerinden veri gönderir (chpasswd, crontab -, tee ...).
-export function hostWithInput(argv, input, opts = {}) {
-  return execFileSync(NSENTER, [...NS_ARGS, ...argv], {
-    ...baseOpts(opts),
-    input,
-  }).toString().trim();
+// Senkron sürüm event loop'u bloke ettiği için yalnızca async kullanılmalı;
+// hata durumunda stderr ile birlikte fırlatır.
+export function hostInput(argv, input, opts = {}) {
+  return new Promise((resolve, reject) => {
+    const { timeout = 10000, env = DEFAULT_ENV } = baseOpts(opts);
+    const child = spawn(NSENTER, [...NS_ARGS, ...argv], { env });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try { child.kill('SIGKILL'); } catch { /* zaten bitmiş */ }
+      reject(new Error(`${argv[0]} timed out after ${timeout}ms`));
+    }, timeout);
+
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(value);
+    };
+
+    child.stdout.on('data', d => { stdout += d; });
+    child.stderr.on('data', d => { stderr += d; });
+    child.on('error', err => finish(reject, err));
+    child.on('close', code => {
+      if (code === 0) return finish(resolve, stdout.trim());
+      const err = new Error(stderr.trim() || `${argv[0]} exited with code ${code}`);
+      err.stderr = stderr.trim();
+      err.code = code;
+      finish(reject, err);
+    });
+
+    // stdin kapanmadan komut (chpasswd, tee) beklemeye devam eder.
+    child.stdin.on('error', () => { /* süreç erken kapandıysa yoksay */ });
+    child.stdin.end(input);
+  });
 }
 
 // Uzun süren / akış tabanlı komutlar (journalctl -f gibi).

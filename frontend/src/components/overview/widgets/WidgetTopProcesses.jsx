@@ -1,17 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Activity } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 import { useStore } from '../../../store/useStore.js';
-import client from '../../../api/client.js';
+import { useProcesses } from '../../../hooks/useProcesses.js';
 import { fmtBytes } from '../../../utils/format.js';
 import { useWidgetSize, widgetBreakpoints } from '../WidgetSizeContext.js';
 
 const WidgetTopProcesses = React.memo(function WidgetTopProcesses() {
-  const { data: procs } = useQuery({
-    queryKey: ['processes'],
-    queryFn: () => client.get('/processes').then(r => r.data),
-    refetchInterval: 10000,
-  });
+  const { data: procs } = useProcesses({ intervalMs: 10000 });
   const setActiveTab = useStore(s => s.setActiveTab);
   const [sortBy, setSortBy] = useState('cpu');
 

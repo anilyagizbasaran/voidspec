@@ -46,31 +46,59 @@ function parseUnitFiles(raw) {
   return map;
 }
 
+// İki tam systemctl taraması istek başına 1-6 saniye sürüyor, üstelik liste
+// panelden 8, alarm zilinden 30 saniyede bir isteniyor. Kısa ömürlü cache hem
+// tekrar eden taramaları hem de eşzamanlı isteklerin çakışmasını önlüyor.
+const LIST_TTL_MS = 5000;
+let listCache = { at: 0, data: null };
+let listInFlight = null;
+
+async function collectServices() {
+  const [unitsRes, filesRes] = await Promise.all([
+    nsctl('systemctl', 'list-units', '--type=service', '--all', '--no-pager', '--no-legend', '--full', '--plain'),
+    nsctl('systemctl', 'list-unit-files', '--type=service', '--no-pager', '--no-legend', '--full', '--plain'),
+  ]);
+
+  const services = parseServiceList(unitsRes.stdout);
+  const fileStates = parseUnitFiles(filesRes.stdout);
+
+  const merged = services.map(s => ({
+    ...s,
+    enabled: fileStates[s.unit] || 'static',
+  }));
+
+  // Also add unit-file-only entries (installed but not loaded at runtime)
+  const loadedUnits = new Set(services.map(s => s.unit));
+  for (const [unit, state] of Object.entries(fileStates)) {
+    if (!loadedUnits.has(unit)) {
+      merged.push({ unit, load: 'not-loaded', active: 'inactive', sub: 'dead', description: '', enabled: state });
+    }
+  }
+
+  merged.sort((a, b) => a.unit.localeCompare(b.unit));
+  return merged;
+}
+
+function invalidateList() {
+  listCache = { at: 0, data: null };
+}
+
+async function getServices() {
+  if (listCache.data && Date.now() - listCache.at < LIST_TTL_MS) return listCache.data;
+  if (!listInFlight) {
+    listInFlight = collectServices()
+      .then(data => {
+        listCache = { at: Date.now(), data };
+        return data;
+      })
+      .finally(() => { listInFlight = null; });
+  }
+  return listInFlight;
+}
+
 export async function serviceRoutes(fastify) {
   fastify.get('/api/services', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    const [unitsRes, filesRes] = await Promise.all([
-      nsctl('systemctl', 'list-units', '--type=service', '--all', '--no-pager', '--no-legend', '--full', '--plain'),
-      nsctl('systemctl', 'list-unit-files', '--type=service', '--no-pager', '--no-legend', '--full', '--plain'),
-    ]);
-
-    const services = parseServiceList(unitsRes.stdout);
-    const fileStates = parseUnitFiles(filesRes.stdout);
-
-    const merged = services.map(s => ({
-      ...s,
-      enabled: fileStates[s.unit] || 'static',
-    }));
-
-    // Also add unit-file-only entries (installed but not loaded at runtime)
-    const loadedUnits = new Set(services.map(s => s.unit));
-    for (const [unit, state] of Object.entries(fileStates)) {
-      if (!loadedUnits.has(unit)) {
-        merged.push({ unit, load: 'not-loaded', active: 'inactive', sub: 'dead', description: '', enabled: state });
-      }
-    }
-
-    merged.sort((a, b) => a.unit.localeCompare(b.unit));
-    reply.send({ services: merged });
+    reply.send({ services: await getServices() });
   });
 
   fastify.post('/api/services/:name/action', {
@@ -89,6 +117,7 @@ export async function serviceRoutes(fastify) {
     }
 
     const { stdout, stderr } = await nsctl('systemctl', action, name);
+    invalidateList();
     fastify.log.info({ name, action }, 'Service action');
 
     // For enable/disable, reload the daemon

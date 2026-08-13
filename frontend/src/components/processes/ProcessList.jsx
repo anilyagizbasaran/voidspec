@@ -101,7 +101,9 @@ export default function ProcessList() {
   const [killTarget, setKillTarget] = useState(null);
   const [toast, setToast] = useState(null);
 
-  const { data, isLoading, refetch, isFetching } = useProcesses();
+  // "show all" açıkken sunucudan da geniş liste isteniyor; normalde 300 kayıt
+  // yetiyor ve boşuna yüzlerce satır serileştirilmiyor.
+  const { data, isLoading, refetch, isFetching } = useProcesses({ limit: showAll ? 2000 : 300 });
   const killMutation = useKillProcess();
 
   function handleSort(col) {
@@ -266,7 +268,7 @@ export default function ProcessList() {
           onClick={() => setShowAll(true)}
           className="text-xs text-panel-muted hover:text-panel-text py-2 text-center"
         >
-          Showing 50 of {data.list.length} — show all
+          Showing 50 of {data.total ?? data.list.length} — show all
         </button>
       )}
 

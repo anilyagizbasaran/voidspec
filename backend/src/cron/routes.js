@@ -1,4 +1,4 @@
-import { hostSync, hostWithInput } from '../lib/host.js';
+import { host, hostInput } from '../lib/host.js';
 
 // Parse a crontab line. hasUser=true for /etc/crontab and /etc/cron.d files
 export function parseLine(rawLine, source, idx, hasUser = false) {
@@ -56,17 +56,17 @@ export function parseLine(rawLine, source, idx, hasUser = false) {
   };
 }
 
-function readRootCrontab() {
+async function readRootCrontab() {
   const jobs = [];
-  getRootCrontabLines().forEach((line, i) => {
+  (await getRootCrontabLines()).forEach((line, i) => {
     const job = parseLine(line, 'root', i, false);
     if (job) jobs.push(job);
   });
   return jobs;
 }
 
-function readSystemCrontab() {
-  const raw = hostSync(['cat', '/etc/crontab']);
+async function readSystemCrontab() {
+  const { stdout: raw } = await host(['cat', '/etc/crontab']);
   const jobs = [];
   raw.split('\n').forEach((line, i) => {
     // Skip comment-only lines and env vars
@@ -77,13 +77,19 @@ function readSystemCrontab() {
   return jobs;
 }
 
-function readCronD() {
+async function readCronD() {
   const jobs = [];
-  const files = hostSync(['ls', '/etc/cron.d/']).split('\n').filter(Boolean);
-  for (const file of files) {
+  const { stdout: listing } = await host(['ls', '/etc/cron.d/']);
+  const files = listing.split('\n').filter(Boolean);
+  // Dosyaları paralel okuyoruz; sırayla okumak dosya başına bir nsenter turu demekti.
+  const contents = await Promise.all(
     // Dosya adı listeden geliyor ama yine de yol ayracı içeren adları atlıyoruz.
-    if (file.includes('/')) continue;
-    const content = hostSync(['cat', `/etc/cron.d/${file}`]);
+    files.filter(f => !f.includes('/')).map(async (file) => ({
+      file,
+      content: (await host(['cat', `/etc/cron.d/${file}`])).stdout,
+    })),
+  );
+  for (const { file, content } of contents) {
     content.split('\n').forEach((line, i) => {
       if (/^[A-Z_]+=/.test(line.trim())) return;
       const job = parseLine(line, `cron.d/${file}`, i, true);
@@ -93,23 +99,24 @@ function readCronD() {
   return jobs;
 }
 
-function readCronDirs() {
-  const dirs = { hourly: [], daily: [], weekly: [], monthly: [] };
-  for (const name of Object.keys(dirs)) {
-    dirs[name] = hostSync(['ls', `/etc/cron.${name}/`]).split('\n').filter(Boolean);
-  }
-  return dirs;
+async function readCronDirs() {
+  const names = ['hourly', 'daily', 'weekly', 'monthly'];
+  const listings = await Promise.all(names.map(n => host(['ls', `/etc/cron.${n}/`])));
+  return Object.fromEntries(
+    names.map((n, i) => [n, listings[i].stdout.split('\n').filter(Boolean)]),
+  );
 }
 
 // Root'un crontab'ını komple yazar. Eskiden içerik `echo '...' | crontab -`
 // şeklinde shell komut satırına gömülüyordu: tırnak kaçırma kırılgandı ve uzun
 // crontab ARG_MAX'a takılabiliyordu. Artık içerik stdin'den gidiyor.
-function writeRootCrontab(lines) {
-  hostWithInput(['crontab', '-'], lines.join('\n').replace(/\n+$/, '') + '\n');
+async function writeRootCrontab(lines) {
+  await hostInput(['crontab', '-'], lines.join('\n').replace(/\n+$/, '') + '\n');
 }
 
-function getRootCrontabLines() {
-  return hostSync(['crontab', '-l']).split('\n');
+async function getRootCrontabLines() {
+  const { stdout } = await host(['crontab', '-l']);
+  return stdout.split('\n');
 }
 
 // Listeleme ile düzenleme arasında crontab değişmişse yanlış satırı
@@ -121,10 +128,10 @@ function staleLine(lines, idx, expectedRaw) {
 
 export async function cronRoutes(fastify) {
   fastify.get('/api/cron', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    reply.send({
-      jobs: [...readRootCrontab(), ...readSystemCrontab(), ...readCronD()],
-      dirs: readCronDirs(),
-    });
+    const [rootJobs, systemJobs, cronDJobs, dirs] = await Promise.all([
+      readRootCrontab(), readSystemCrontab(), readCronD(), readCronDirs(),
+    ]);
+    reply.send({ jobs: [...rootJobs, ...systemJobs, ...cronDJobs], dirs });
   });
 
   fastify.post('/api/cron', {
@@ -138,9 +145,9 @@ export async function cronRoutes(fastify) {
       return reply.code(400).send({ error: 'schedule and command required' });
     }
 
-    const lines = getRootCrontabLines().filter((l, i, arr) => !(i === arr.length - 1 && l === ''));
+    const lines = (await getRootCrontabLines()).filter((l, i, arr) => !(i === arr.length - 1 && l === ''));
     lines.push(`${cleanSchedule} ${cleanCommand}`);
-    writeRootCrontab(lines);
+    await writeRootCrontab(lines);
 
     fastify.log.info({ schedule: cleanSchedule }, 'Cron job added');
     reply.send({ ok: true });
@@ -158,7 +165,7 @@ export async function cronRoutes(fastify) {
     }
 
     const idx = parseInt(idxStr, 10);
-    const lines = getRootCrontabLines();
+    const lines = await getRootCrontabLines();
     if (isNaN(idx) || idx < 0 || idx >= lines.length) {
       return reply.code(404).send({ error: 'Job not found' });
     }
@@ -183,7 +190,7 @@ export async function cronRoutes(fastify) {
     if (enabled === false) newLine = `# ${newLine}`;
 
     lines[idx] = newLine;
-    writeRootCrontab(lines);
+    await writeRootCrontab(lines);
 
     fastify.log.info({ id: req.params.id, enabled }, 'Cron job updated');
     reply.send({ ok: true });
@@ -199,7 +206,7 @@ export async function cronRoutes(fastify) {
     }
 
     const idx = parseInt(idxStr, 10);
-    const lines = getRootCrontabLines();
+    const lines = await getRootCrontabLines();
     if (isNaN(idx) || idx < 0 || idx >= lines.length) {
       return reply.code(404).send({ error: 'Job not found' });
     }
@@ -208,7 +215,7 @@ export async function cronRoutes(fastify) {
     }
 
     lines.splice(idx, 1);
-    writeRootCrontab(lines);
+    await writeRootCrontab(lines);
 
     fastify.log.info({ id: req.params.id }, 'Cron job deleted');
     reply.send({ ok: true });

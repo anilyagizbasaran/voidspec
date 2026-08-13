@@ -4,9 +4,34 @@ const PROTECTED_PIDS = new Set([0, 1, 2]);
 const MIN_SAFE_PID = 10;
 const ALLOWED_SIGNALS = new Set(['SIGTERM', 'SIGKILL', 'SIGSTOP', 'SIGCONT', 'SIGHUP']);
 
+// si.processes() her çağrıda tüm proses tablosunu tarıyor (1-2.5 sn) ve panel
+// bunu 3 saniyede bir istiyordu — istekler sürekli üst üste biniyordu. Kısa
+// cache ile aynı tarama paylaşılıyor.
+const TTL_MS = 2000;
+let cache = { at: 0, data: null };
+let inFlight = null;
+
+async function getProcesses() {
+  if (cache.data && Date.now() - cache.at < TTL_MS) return cache.data;
+  if (!inFlight) {
+    inFlight = si.processes()
+      .then(data => {
+        cache = { at: Date.now(), data };
+        return data;
+      })
+      .finally(() => { inFlight = null; });
+  }
+  return inFlight;
+}
+
 export async function processRoutes(fastify) {
   fastify.get('/api/processes', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    const result = await si.processes();
+    const result = await getProcesses();
+
+    // Panel yalnızca ilk N prosesi gösteriyordu ama sunucu her seferinde
+    // yüzlerce kaydı serileştirip gönderiyordu.
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 300, 1), 2000);
+    const sortBy = req.query.sort === 'mem' ? 'mem' : 'cpu';
 
     const list = result.list
       .map(p => ({
@@ -21,14 +46,16 @@ export async function processRoutes(fastify) {
         started: p.started,
         priority: p.priority,
       }))
-      .sort((a, b) => b.cpu - a.cpu);
+      .sort((a, b) => b[sortBy] - a[sortBy]);
 
     reply.send({
       total: result.all,
       running: result.running,
       sleeping: result.sleeping,
       blocked: result.blocked,
-      list,
+      returned: Math.min(list.length, limit),
+      truncated: list.length > limit,
+      list: list.slice(0, limit),
     });
   });
 

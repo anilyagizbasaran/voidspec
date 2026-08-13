@@ -1,12 +1,16 @@
-import { hostSync, hostSyncOrThrow } from '../lib/host.js';
+import { host, hostOrThrow } from '../lib/host.js';
+
+// Panelin dışarıya açık portları. UFW açılırken bunlar mutlaka izinli olmalı,
+// yoksa duvarı açan istek kendi bağlantısını koparıyor.
+const PANEL_PORTS = ['8080/tcp', '8443/tcp'];
 
 // Detect SSH port from sshd config
-function getSshPort() {
-  const out = hostSync(['sshd', '-T']);
+async function getSshPort() {
+  const { stdout: out } = await host(['sshd', '-T']);
   const m = out.match(/^port (\d+)/m);
   if (m) return parseInt(m[1]);
 
-  const conf = hostSync(['cat', '/etc/ssh/sshd_config']);
+  const { stdout: conf } = await host(['cat', '/etc/ssh/sshd_config']);
   const m2 = conf.match(/^\s*Port\s+(\d+)/m);
   if (m2) return parseInt(m2[1]);
 
@@ -55,26 +59,64 @@ function isSshRule(rule, sshPort) {
 
 const MUTATING_RATE = { max: 15, timeWindow: '1 minute' };
 
+// `ufw status` + iptables listelemesi 0.5-3 saniye sürüyor ve panel bunu
+// widget'tan 30, panelden 10 saniyede bir çağırıyor. Kısa ömürlü cache ile
+// aynı anda gelen istekler tek bir çalıştırmayı paylaşır.
+const STATUS_TTL_MS = 5000;
+let statusCache = { at: 0, data: null };
+let statusInFlight = null;
+
+async function collectStatus() {
+  // Beş komut birbirinden bağımsız — sırayla değil paralel çalıştırıyoruz.
+  const [statusRes, rulesRes, iptInRes, iptOutRes, sshPort] = await Promise.all([
+    host(['ufw', 'status', 'verbose']),
+    host(['ufw', 'status', 'numbered']),
+    host(['iptables', '-L', 'INPUT', '--line-numbers', '-n']),
+    host(['iptables', '-L', 'OUTPUT', '--line-numbers', '-n']),
+    getSshPort(),
+  ]);
+
+  const statusRaw = statusRes.stdout;
+  const rulesRaw = rulesRes.stdout;
+  const active = /Status:\s*active/i.test(statusRaw);
+  const rules = parseUfwRules(rulesRaw);
+
+  return {
+    active,
+    sshPort,
+    sshProtected: rules.some(r => isSshRule(r, sshPort)),
+    rules,
+    iptables: {
+      input: parseIptables(iptInRes.stdout),
+      output: parseIptables(iptOutRes.stdout),
+    },
+    raw: active ? rulesRaw : statusRaw,
+  };
+}
+
+function invalidateStatus() {
+  statusCache = { at: 0, data: null };
+}
+
+async function getStatus() {
+  if (statusCache.data && Date.now() - statusCache.at < STATUS_TTL_MS) {
+    return statusCache.data;
+  }
+  if (!statusInFlight) {
+    statusInFlight = collectStatus()
+      .then(data => {
+        statusCache = { at: Date.now(), data };
+        return data;
+      })
+      .finally(() => { statusInFlight = null; });
+  }
+  return statusInFlight;
+}
+
 export async function firewallRoutes(fastify) {
   // ── Status ──────────────────────────────────────────────────────────────────
   fastify.get('/api/firewall/status', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    const statusRaw = hostSync(['ufw', 'status', 'verbose']);
-    const active = /Status:\s*active/i.test(statusRaw);
-    const rulesRaw = hostSync(['ufw', 'status', 'numbered']);
-    const rules = parseUfwRules(rulesRaw);
-    const sshPort = getSshPort();
-
-    reply.send({
-      active,
-      sshPort,
-      sshProtected: rules.some(r => isSshRule(r, sshPort)),
-      rules,
-      iptables: {
-        input:  parseIptables(hostSync(['iptables', '-L', 'INPUT', '--line-numbers', '-n'])),
-        output: parseIptables(hostSync(['iptables', '-L', 'OUTPUT', '--line-numbers', '-n'])),
-      },
-      raw: active ? rulesRaw : statusRaw,
-    });
+    reply.send(await getStatus());
   });
 
   // ── Enable UFW ──────────────────────────────────────────────────────────────
@@ -82,20 +124,24 @@ export async function firewallRoutes(fastify) {
     onRequest: [fastify.authenticate],
     config: { rateLimit: MUTATING_RATE },
   }, async (req, reply) => {
-    const sshPort = getSshPort();
-    const rules = parseUfwRules(hostSync(['ufw', 'status', 'numbered']));
+    const sshPort = await getSshPort();
+    const { stdout } = await host(['ufw', 'status', 'numbered']);
+    const rules = parseUfwRules(stdout);
 
     // Always ensure SSH is allowed before enabling
     const sshAllowed = rules.some(r => isSshRule(r, sshPort));
     if (!sshAllowed) {
-      hostSync(['ufw', 'allow', `${sshPort}/tcp`, 'comment', 'SSH - auto-added by ServerPanel']);
+      await host(['ufw', 'allow', `${sshPort}/tcp`, 'comment', 'SSH - auto-added by ServerPanel']);
     }
 
-    // Always ensure panel ports are allowed before enabling
-    hostSync(['ufw', 'allow', '80/tcp', 'comment', 'ServerPanel HTTP']);
-    hostSync(['ufw', 'allow', '3001/tcp', 'comment', 'ServerPanel Backend']);
+    // Panelin kendi portları da izinli olmalı, yoksa duvar açılır açılmaz
+    // arayüz erişilemez hale geliyor.
+    for (const port of PANEL_PORTS) {
+      await host(['ufw', 'allow', port, 'comment', 'ServerPanel']);
+    }
 
-    hostSyncOrThrow(['ufw', '--force', 'enable']);
+    await hostOrThrow(['ufw', '--force', 'enable']);
+    invalidateStatus();
     fastify.log.info('UFW enabled');
     reply.send({ ok: true, sshAutoAdded: !sshAllowed, sshPort });
   });
@@ -105,7 +151,8 @@ export async function firewallRoutes(fastify) {
     onRequest: [fastify.authenticate],
     config: { rateLimit: MUTATING_RATE },
   }, async (req, reply) => {
-    hostSyncOrThrow(['ufw', '--force', 'disable']);
+    await hostOrThrow(['ufw', '--force', 'disable']);
+    invalidateStatus();
     fastify.log.info('UFW disabled');
     reply.send({ ok: true });
   });
@@ -152,7 +199,8 @@ export async function firewallRoutes(fastify) {
       args.push('comment', String(comment).replace(/[\r\n]/g, ' ').slice(0, 60));
     }
 
-    hostSyncOrThrow(args);
+    await hostOrThrow(args);
+    invalidateStatus();
     fastify.log.info({ args }, 'UFW rule added');
     reply.send({ ok: true, cmd: args.join(' ') });
   });
@@ -168,15 +216,19 @@ export async function firewallRoutes(fastify) {
     }
 
     // Re-read rules to verify this isn't the SSH allow rule
-    const sshPort = getSshPort();
-    const rule = parseUfwRules(hostSync(['ufw', 'status', 'numbered'])).find(r => r.num === num);
+    const [sshPort, { stdout }] = await Promise.all([
+      getSshPort(),
+      host(['ufw', 'status', 'numbered']),
+    ]);
+    const rule = parseUfwRules(stdout).find(r => r.num === num);
 
     if (!rule) return reply.code(404).send({ error: 'Rule not found' });
     if (isSshRule(rule, sshPort)) {
       return reply.code(403).send({ error: `Cannot delete SSH allow rule (port ${sshPort})` });
     }
 
-    hostSyncOrThrow(['ufw', '--force', 'delete', String(num)]);
+    await hostOrThrow(['ufw', '--force', 'delete', String(num)]);
+    invalidateStatus();
     fastify.log.info({ num }, 'UFW rule deleted');
     reply.send({ ok: true });
   });
@@ -186,10 +238,14 @@ export async function firewallRoutes(fastify) {
     onRequest: [fastify.authenticate],
     config: { rateLimit: { max: 3, timeWindow: '10 minutes' } },
   }, async (req, reply) => {
-    hostSync(['ufw', '--force', 'reset']);
-    // Reset sonrası SSH kapıda kalmasın: kuralı hemen geri ekle.
-    const sshPort = getSshPort();
-    hostSync(['ufw', 'allow', `${sshPort}/tcp`, 'comment', 'SSH - re-added after reset']);
+    const sshPort = await getSshPort();
+    await host(['ufw', '--force', 'reset']);
+    // Reset sonrası SSH ve panel kapıda kalmasın: kuralları hemen geri ekle.
+    await host(['ufw', 'allow', `${sshPort}/tcp`, 'comment', 'SSH - re-added after reset']);
+    for (const port of PANEL_PORTS) {
+      await host(['ufw', 'allow', port, 'comment', 'ServerPanel - re-added after reset']);
+    }
+    invalidateStatus();
     fastify.log.info({ sshPort }, 'UFW reset');
     reply.send({ ok: true, sshPort });
   });
