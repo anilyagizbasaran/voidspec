@@ -60,12 +60,19 @@ services:
     restart: unless-stopped
     ports:
       - "8080:80"    # HTTP — yalnızca HTTPS'e yönlendirir
-      - "8443:443"   # HTTPS (self-signed sertifika ile)
+      - "8443:443"   # HTTPS
     environment:
-      # Sertifikanın SAN alanına yazılır; panelin erişildiği IP/alan adı.
+      # /etc/letsencrypt/live altındaki sertifika dizininin adı. Varsa panel bu
+      # sertifikayı kullanır (tarayıcı uyarısı çıkmaz); yoksa self-signed'a düşer.
+      - PANEL_CERT_NAME=${PANEL_CERT_NAME:-161-97-155-142.sslip.io}
+      # 80 → 443 yönlendirmesinin hedefi. Sertifika bu ada göre düzenlendiği için
+      # IP ile gelen istekler de buraya yönlendirilir, aksi halde ad uyuşmayıp
+      # tarayıcı yine uyarı verir.
+      - PANEL_PUBLIC_HOST=${PANEL_PUBLIC_HOST:-161-97-155-142.sslip.io}
+      # Self-signed'a düşülürse sertifikanın SAN alanına yazılacak IP/alan adı.
       - PANEL_HOST=${PANEL_HOST:-161.97.155.142}
-      # 80 → 443 yönlendirmesinin hedef portu. Konteyner içindeki 443,
-      # dışarıda bu porta haritalanıyor; ports: satırıyla birlikte değişmeli.
+      # Konteyner içindeki 443, dışarıda bu porta haritalanıyor; ports: satırıyla
+      # birlikte değişmeli.
       - PANEL_HTTPS_PORT=${PANEL_HTTPS_PORT:-8443}
     depends_on:
       backend:
@@ -73,6 +80,9 @@ services:
     volumes:
       # Sertifika volume'da kalsın ki rebuild sonrası tarayıcı istisnası bozulmasın.
       - serverpanel-certs:/etc/nginx/certs
+      # Let's Encrypt sertifikaları. live/ symlink'leri archive/'a işaret ettiği
+      # için ikisini kapsayan üst dizin bağlanmalı; salt okunur.
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     mem_limit: 128m
     logging:
       driver: json-file

@@ -20,12 +20,17 @@ map $http_upgrade $connection_upgrade {
 #
 # HTTPS'i zorunlu kılmak istemiyorsanız bu server bloğunu, aşağıdaki 443
 # bloğundaki `include` satırıyla değiştirin ve COOKIE_SECURE=false yapın.
+#
+# Hedefte $host değil sabit PANEL_PUBLIC_HOST var: sertifika bu ada göre
+# düzenlendiği için IP ile gelen istek IP'ye yönlendirilseydi ad uyuşmaz ve
+# tarayıcı sertifika uyarısı verirdi.
 server {
     listen 80;
-    return 302 https://$host:${PANEL_HTTPS_PORT}$request_uri;
+    return 302 https://${PANEL_PUBLIC_HOST}:${PANEL_HTTPS_PORT}$request_uri;
 }
 
-# Self-signed sertifika ile HTTPS (docker-entrypoint.d içinde üretilir).
+# HTTPS. Sertifika docker-entrypoint.d/40-selfsigned-cert.sh tarafından seçilir:
+# Let's Encrypt varsa ona symlink, yoksa üretilen self-signed.
 server {
     listen 443 ssl;
     http2 on;
