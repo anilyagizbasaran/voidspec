@@ -9,8 +9,21 @@ import { revokeToken } from './tokens.js';
 const attempts = new Map();
 const MAX_FAILS = 5;
 const BASE_LOCK_MS = 15 * 60 * 1000; // 15 min, doubles each further lockout
+// Üst sınır olmadan katlanan süre 20. kilitlenmede yıllara çıkıyordu: ortak
+// bir NAT/CGNAT IP'sinden gelen gürültü yöneticiyi kalıcı olarak dışarıda
+// bırakabilirdi. Tavan koyuyoruz.
+const MAX_LOCK_MS = 24 * 60 * 60 * 1000; // 24 saat
+// Kilitlenme sayacı da sonsuza kadar hatırlanmamalı; bu süre boyunca hiç
+// başarısız deneme gelmezse ceza kademesi bir basamak geri iner.
+const LOCK_DECAY_MS = 12 * 60 * 60 * 1000;
 const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 const ENTRY_TTL_MS = 60 * 60 * 1000; // son hareketten 1 saat sonra kaydı unut
+
+export function lockDurationMs(lockCount) {
+  const scaled = BASE_LOCK_MS * Math.pow(2, Math.max(0, lockCount - 1));
+  // 2^n hızla Infinity'ye gidiyor; Math.min ile tavanlıyoruz.
+  return Math.min(scaled, MAX_LOCK_MS);
+}
 
 function getState(ip) {
   let s = attempts.get(ip);
@@ -27,7 +40,16 @@ function getState(ip) {
 function sweepAttempts() {
   const now = Date.now();
   for (const [ip, s] of attempts) {
-    if (s.lockUntil <= now && now - s.seen > ENTRY_TTL_MS) attempts.delete(ip);
+    if (s.lockUntil <= now && now - s.seen > ENTRY_TTL_MS) {
+      attempts.delete(ip);
+      continue;
+    }
+    // Uzun süredir sessiz olan IP'nin ceza kademesini geri indir, yoksa
+    // aylar önceki kilitlenmeler yüzünden süre hep tavanda kalıyor.
+    if (s.lockCount > 0 && s.lockUntil <= now && now - s.seen > LOCK_DECAY_MS) {
+      s.lockCount -= 1;
+      s.seen = now;
+    }
   }
 }
 
@@ -77,7 +99,7 @@ export async function authRoutes(fastify) {
       state.fails += 1;
       if (state.fails >= MAX_FAILS) {
         state.lockCount += 1;
-        state.lockUntil = now + BASE_LOCK_MS * Math.pow(2, state.lockCount - 1);
+        state.lockUntil = now + lockDurationMs(state.lockCount);
         state.fails = 0;
         fastify.log.warn({ ip, lockCount: state.lockCount }, 'Login locked out (brute-force)');
       }
@@ -101,7 +123,8 @@ export async function authRoutes(fastify) {
         secure: config.cookieSecure,
         sameSite: 'strict',
         path: '/',
-        maxAge: 86400,
+        // Token ile aynı ömür — bkz. config.durationToSeconds
+        maxAge: config.jwtExpiresInSeconds,
       })
       .send({ ok: true });
   });

@@ -10,6 +10,18 @@ function parseIntEnv(name, fallback) {
 
 const BCRYPT_RE = /^\$2[aby]\$\d{2}\$.{53}$/;
 
+// JWT_EXPIRES_IN ("24h", "7d", "90m", "3600") → saniye. Cookie'nin maxAge'i
+// eskiden sabit 86400 idi: JWT_EXPIRES_IN=7d verildiğinde token 7 gün geçerli
+// olmasına rağmen tarayıcı çerezi 24 saatte siliyor ve kullanıcı sebepsiz
+// çıkış yapmış oluyordu. İkisi artık aynı kaynaktan türüyor.
+const DURATION_UNITS = { s: 1, m: 60, h: 3600, d: 86400 };
+export function durationToSeconds(value, fallback = 86400) {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.floor(value);
+  const m = String(value ?? '').trim().match(/^(\d+)\s*([smhd])?$/i);
+  if (!m) return fallback;
+  return parseInt(m[1], 10) * (DURATION_UNITS[(m[2] || 's').toLowerCase()] ?? 1);
+}
+
 // docker compose, env_file içindeki `$$` dizisini `$` olarak okur; aynı dosya
 // `node src/index.js` ile doğrudan çalıştırıldığında ise dotenv kaçırmayı
 // çözmez ve hash sessizce geçersiz olur (her giriş "Invalid credentials").
@@ -25,6 +37,7 @@ export const config = {
   port: parseIntEnv('PORT', 3001),
   jwtSecret: process.env.JWT_SECRET || '',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
+  jwtExpiresInSeconds: durationToSeconds(process.env.JWT_EXPIRES_IN || '24h'),
   adminUsername: process.env.ADMIN_USERNAME || 'admin',
   adminPasswordHash: normalizeHash(process.env.ADMIN_PASSWORD_HASH),
   // Birden fazla origin virgülle ayrılabilir (ör. IP + alan adı).
