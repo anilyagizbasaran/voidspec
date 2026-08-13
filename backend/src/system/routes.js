@@ -1,5 +1,44 @@
 import si from 'systeminformation';
 import os from 'os';
+import { hostNet } from '../lib/host.js';
+
+// `ss -tulnp` çıktısını satır satır çözer:
+// tcp LISTEN 0 511 0.0.0.0:8080 0.0.0.0:* users:(("docker-proxy",pid=123,fd=4))
+export function parseSsOutput(raw) {
+  const ports = [];
+  const seen = new Set();
+
+  for (const line of raw.split('\n')) {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length < 5) continue;
+
+    const [protocol, state, , , local] = parts;
+    if (protocol !== 'tcp' && protocol !== 'udp') continue;
+    if (state !== 'LISTEN' && state !== 'UNCONN') continue;
+
+    // IPv6 adresleri de var: [::]:80 → adres ve port son ':' ile ayrılır.
+    const sep = local.lastIndexOf(':');
+    if (sep === -1) continue;
+    const localPort = Number(local.slice(sep + 1));
+    if (!Number.isFinite(localPort)) continue;
+
+    const procMatch = line.match(/users:\(\("([^"]+)",pid=(\d+)/);
+
+    const key = `${protocol}|${local}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    ports.push({
+      protocol,
+      localAddress: local.slice(0, sep),
+      localPort,
+      pid: procMatch ? Number(procMatch[2]) : null,
+      process: procMatch ? procMatch[1] : '',
+    });
+  }
+
+  return ports.sort((a, b) => a.localPort - b.localPort || a.protocol.localeCompare(b.protocol));
+}
 
 export async function systemRoutes(fastify) {
   fastify.get('/api/system/stats', { onRequest: [fastify.authenticate] }, async (req, reply) => {
@@ -23,12 +62,13 @@ export async function systemRoutes(fastify) {
       },
       memory: {
         total: mem.total,
-        used: mem.used,
+        used: mem.total - mem.available,
         free: mem.free,
+        available: mem.available,
         active: mem.active,
         buffcache: mem.buffcache,
         swap: { total: mem.swaptotal, used: mem.swapused, free: mem.swapfree },
-        percent: Math.round((mem.used / mem.total) * 1000) / 10,
+        percent: Math.round(((mem.total - mem.available) / mem.total) * 1000) / 10,
       },
       disk: disk.map(d => ({
         fs: d.fs,
@@ -97,18 +137,10 @@ export async function systemRoutes(fastify) {
   });
 
   fastify.get('/api/system/ports', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    const connections = await si.networkConnections().catch(() => []);
-    const listening = connections
-      .filter(c => c.state === 'LISTEN' || c.state === 'listen')
-      .map(c => ({
-        protocol: c.protocol,
-        localAddress: c.localAddress,
-        localPort: Number(c.localPort),
-        pid: c.pid,
-        process: c.process || '',
-      }))
-      .sort((a, b) => a.localPort - b.localPort);
-
-    reply.send({ ports: listening });
+    // si.networkConnections() burada işe yaramıyordu: `ss` konteyner imajında
+    // yok ve olsa bile konteynerin kendi ağ namespace'ini görürdü — panel
+    // sürekli boş liste gösteriyordu. Host'un ağ namespace'inden okuyoruz.
+    const { stdout } = await hostNet(['ss', '-tulnp']);
+    reply.send({ ports: parseSsOutput(stdout) });
   });
 }

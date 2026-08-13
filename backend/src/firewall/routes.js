@@ -1,31 +1,15 @@
-import { execSync } from 'child_process';
-
-const NS = 'nsenter --mount=/proc/1/ns/mnt --';
-
-function run(cmd, opts = {}) {
-  try {
-    return execSync(`${NS} ${cmd}`, { timeout: 10000, ...opts }).toString().trim();
-  } catch (e) {
-    return e.stdout?.toString().trim() || '';
-  }
-}
-
-function runOrThrow(cmd) {
-  return execSync(`${NS} ${cmd}`, { timeout: 10000 }).toString().trim();
-}
+import { hostSync, hostSyncOrThrow } from '../lib/host.js';
 
 // Detect SSH port from sshd config
 function getSshPort() {
-  try {
-    const out = run('sshd -T 2>/dev/null');
-    const m = out.match(/^port (\d+)/m);
-    if (m) return parseInt(m[1]);
-  } catch {}
-  try {
-    const conf = run("grep -E '^Port ' /etc/ssh/sshd_config");
-    const m = conf.match(/Port\s+(\d+)/);
-    if (m) return parseInt(m[1]);
-  } catch {}
+  const out = hostSync(['sshd', '-T']);
+  const m = out.match(/^port (\d+)/m);
+  if (m) return parseInt(m[1]);
+
+  const conf = hostSync(['cat', '/etc/ssh/sshd_config']);
+  const m2 = conf.match(/^\s*Port\s+(\d+)/m);
+  if (m2) return parseInt(m2[1]);
+
   return 22;
 }
 
@@ -61,33 +45,33 @@ function parseIptables(raw) {
   return rules;
 }
 
+function isSshRule(rule, sshPort) {
+  return rule.action === 'ALLOW' && (
+    rule.to === String(sshPort) ||
+    rule.to.startsWith(`${sshPort}/`) ||
+    rule.to === 'OpenSSH'
+  );
+}
+
 const MUTATING_RATE = { max: 15, timeWindow: '1 minute' };
 
 export async function firewallRoutes(fastify) {
   // ── Status ──────────────────────────────────────────────────────────────────
   fastify.get('/api/firewall/status', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    const statusRaw = run('ufw status verbose');
+    const statusRaw = hostSync(['ufw', 'status', 'verbose']);
     const active = /Status:\s*active/i.test(statusRaw);
-    const rulesRaw = run('ufw status numbered');
+    const rulesRaw = hostSync(['ufw', 'status', 'numbered']);
     const rules = parseUfwRules(rulesRaw);
-
-    const iptInput  = run('iptables -L INPUT --line-numbers -n 2>/dev/null');
-    const iptOutput = run('iptables -L OUTPUT --line-numbers -n 2>/dev/null');
-
     const sshPort = getSshPort();
-    const sshProtected = rules.some(r =>
-      r.action === 'ALLOW' &&
-      (r.to === String(sshPort) || r.to.startsWith(`${sshPort}/`) || r.to === 'OpenSSH')
-    );
 
     reply.send({
       active,
       sshPort,
-      sshProtected,
+      sshProtected: rules.some(r => isSshRule(r, sshPort)),
       rules,
       iptables: {
-        input:  parseIptables(iptInput),
-        output: parseIptables(iptOutput),
+        input:  parseIptables(hostSync(['iptables', '-L', 'INPUT', '--line-numbers', '-n'])),
+        output: parseIptables(hostSync(['iptables', '-L', 'OUTPUT', '--line-numbers', '-n'])),
       },
       raw: active ? rulesRaw : statusRaw,
     });
@@ -99,24 +83,19 @@ export async function firewallRoutes(fastify) {
     config: { rateLimit: MUTATING_RATE },
   }, async (req, reply) => {
     const sshPort = getSshPort();
-    const rulesRaw = run('ufw status numbered');
-    const rules = parseUfwRules(rulesRaw);
+    const rules = parseUfwRules(hostSync(['ufw', 'status', 'numbered']));
 
     // Always ensure SSH is allowed before enabling
-    const sshAllowed = rules.some(r =>
-      r.action === 'ALLOW' &&
-      (r.to === String(sshPort) || r.to.startsWith(`${sshPort}/`) || r.to === 'OpenSSH')
-    );
-
+    const sshAllowed = rules.some(r => isSshRule(r, sshPort));
     if (!sshAllowed) {
-      run(`ufw allow ${sshPort}/tcp comment 'SSH - auto-added by ServerPanel'`);
+      hostSync(['ufw', 'allow', `${sshPort}/tcp`, 'comment', 'SSH - auto-added by ServerPanel']);
     }
 
     // Always ensure panel ports are allowed before enabling
-    run(`ufw allow 80/tcp comment 'ServerPanel HTTP'`);
-    run(`ufw allow 3001/tcp comment 'ServerPanel Backend'`);
+    hostSync(['ufw', 'allow', '80/tcp', 'comment', 'ServerPanel HTTP']);
+    hostSync(['ufw', 'allow', '3001/tcp', 'comment', 'ServerPanel Backend']);
 
-    runOrThrow('ufw --force enable');
+    hostSyncOrThrow(['ufw', '--force', 'enable']);
     fastify.log.info('UFW enabled');
     reply.send({ ok: true, sshAutoAdded: !sshAllowed, sshPort });
   });
@@ -126,7 +105,7 @@ export async function firewallRoutes(fastify) {
     onRequest: [fastify.authenticate],
     config: { rateLimit: MUTATING_RATE },
   }, async (req, reply) => {
-    runOrThrow('ufw --force disable');
+    hostSyncOrThrow(['ufw', '--force', 'disable']);
     fastify.log.info('UFW disabled');
     reply.send({ ok: true });
   });
@@ -151,38 +130,31 @@ export async function firewallRoutes(fastify) {
     if (!validProtos.includes(proto || '')) {
       return reply.code(400).send({ error: 'Invalid protocol' });
     }
-
     // Sanitize port: digits, colon for ranges, comma for lists
     if (port && !/^[\d:,]+$/.test(port)) {
       return reply.code(400).send({ error: 'Invalid port' });
     }
-
     // Sanitize IP: basic CIDR/IP format
-    if (from && !/^[\d.:\/a-fA-F]+$/.test(from) && from !== 'Anywhere') {
+    if (from && from !== 'Anywhere' && !/^[\d.:/a-fA-F]+$/.test(from)) {
       return reply.code(400).send({ error: 'Invalid source IP' });
     }
 
-    // Build command
-    let cmd = `ufw ${action}`;
-    if (direction) cmd += ` ${direction}`;
-    if (from && from !== 'Anywhere') cmd += ` from ${from}`;
+    // Argümanlar dizi olarak geçtiği için tırnaklama/kaçırma gerekmiyor.
+    const args = ['ufw', action];
+    if (direction) args.push(direction);
+    if (from && from !== 'Anywhere') args.push('from', from);
     if (port) {
-      const portSuffix = proto && proto !== 'any' ? `${port}/${proto}` : port;
-      if (from && from !== 'Anywhere') {
-        cmd += ` to any port ${portSuffix}`;
-      } else {
-        cmd += ` ${portSuffix}`;
-      }
+      const portSuffix = proto && proto !== 'any' ? `${port}/${proto}` : String(port);
+      if (from && from !== 'Anywhere') args.push('to', 'any', 'port', portSuffix);
+      else args.push(portSuffix);
     }
     if (comment) {
-      // Sanitize comment: allow only printable non-quote chars
-      const safeComment = comment.replace(/['"\\]/g, '').slice(0, 60);
-      cmd += ` comment '${safeComment}'`;
+      args.push('comment', String(comment).replace(/[\r\n]/g, ' ').slice(0, 60));
     }
 
-    runOrThrow(cmd);
-    fastify.log.info({ cmd }, 'UFW rule added');
-    reply.send({ ok: true, cmd });
+    hostSyncOrThrow(args);
+    fastify.log.info({ args }, 'UFW rule added');
+    reply.send({ ok: true, cmd: args.join(' ') });
   });
 
   // ── Delete rule ─────────────────────────────────────────────────────────────
@@ -197,23 +169,14 @@ export async function firewallRoutes(fastify) {
 
     // Re-read rules to verify this isn't the SSH allow rule
     const sshPort = getSshPort();
-    const rulesRaw = run('ufw status numbered');
-    const rules = parseUfwRules(rulesRaw);
-    const rule = rules.find(r => r.num === num);
+    const rule = parseUfwRules(hostSync(['ufw', 'status', 'numbered'])).find(r => r.num === num);
 
     if (!rule) return reply.code(404).send({ error: 'Rule not found' });
-
-    const isSshAllow = rule.action === 'ALLOW' && (
-      rule.to === String(sshPort) ||
-      rule.to.startsWith(`${sshPort}/`) ||
-      rule.to === 'OpenSSH'
-    );
-
-    if (isSshAllow) {
+    if (isSshRule(rule, sshPort)) {
       return reply.code(403).send({ error: `Cannot delete SSH allow rule (port ${sshPort})` });
     }
 
-    runOrThrow(`ufw --force delete ${num}`);
+    hostSyncOrThrow(['ufw', '--force', 'delete', String(num)]);
     fastify.log.info({ num }, 'UFW rule deleted');
     reply.send({ ok: true });
   });
@@ -223,8 +186,11 @@ export async function firewallRoutes(fastify) {
     onRequest: [fastify.authenticate],
     config: { rateLimit: { max: 3, timeWindow: '10 minutes' } },
   }, async (req, reply) => {
-    run('ufw --force reset');
-    fastify.log.info('UFW reset');
-    reply.send({ ok: true });
+    hostSync(['ufw', '--force', 'reset']);
+    // Reset sonrası SSH kapıda kalmasın: kuralı hemen geri ekle.
+    const sshPort = getSshPort();
+    hostSync(['ufw', 'allow', `${sshPort}/tcp`, 'comment', 'SSH - re-added after reset']);
+    fastify.log.info({ sshPort }, 'UFW reset');
+    reply.send({ ok: true, sshPort });
   });
 }

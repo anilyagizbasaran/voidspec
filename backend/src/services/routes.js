@@ -1,28 +1,18 @@
-import { execSync, execFile } from 'child_process';
-import { promisify } from 'util';
-
-const execFileAsync = promisify(execFile);
-
-// nsenter into host mount namespace so systemctl/journalctl are available
-const NSENTER = ['nsenter', '--mount=/proc/1/ns/mnt', '--'];
+import { host } from '../lib/host.js';
 
 // Only alphanumeric, dash, dot, @, colon — no path traversal possible
 const SERVICE_NAME_RE = /^[a-zA-Z0-9._@:-]+\.service$/;
 const ALLOWED_ACTIONS = new Set(['start', 'stop', 'restart', 'reload', 'enable', 'disable']);
 
-function validateService(name) {
+export function validateService(name) {
   if (!name || !SERVICE_NAME_RE.test(name)) {
     throw { code: 400, message: 'Invalid service name' };
   }
 }
 
-async function nsctl(...args) {
-  const [cmd, ...rest] = args;
-  const { stdout, stderr } = await execFileAsync(NSENTER[0], [...NSENTER.slice(1), cmd, ...rest], {
-    timeout: 10000,
-  }).catch(err => ({ stdout: err.stdout || '', stderr: err.stderr || '' }));
-  return { stdout: stdout.trim(), stderr: stderr.trim() };
-}
+// Ortak host çalıştırıcısı üzerinden (bkz. lib/host.js) — argümanlar hiçbir
+// zaman shell'den geçmez.
+const nsctl = (...args) => host(args);
 
 function parseServiceList(raw) {
   const services = [];

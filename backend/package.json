@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test": "NODE_ENV=test node --test test/",
+    "lint": "eslint src test"
   },
   "dependencies": {
     "@fastify/cookie": "^9.3.1",
@@ -18,7 +20,11 @@
     "dotenv": "^16.4.5",
     "fastify": "^4.28.1",
     "node-pty": "^1.0.0",
-    "systeminformation": "^5.22.11",
-    "ssh2": "^1.16.0"
+    "ssh2": "^1.16.0",
+    "systeminformation": "^5.22.11"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "globals": "^17.11.0"
   }
 }

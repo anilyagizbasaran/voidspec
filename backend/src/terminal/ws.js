@@ -1,10 +1,11 @@
 import pty from 'node-pty';
+import { randomUUID } from 'crypto';
 import { config } from '../config.js';
+import { verifyWsAuth, rejectWs } from '../auth/middleware.js';
 
-// sessionId -> { ptyProcess, buffer, dataDisposable, reconnectTimer }
+// sessionId -> { ptyProcess, buffer, owner, dataDisposable, exitDisposable, reconnectTimer }
 const sessions = new Map();
 const BUFFER_MAX = 512 * 1024; // 512 KB
-const RECONNECT_TIMEOUT = 20 * 60 * 1000; // 20 dakika
 
 function spawnPty(cols, rows) {
   let cmd, args;
@@ -31,13 +32,25 @@ function spawnPty(cols, rows) {
   });
 }
 
+function destroySession(sessionId) {
+  const session = sessions.get(sessionId);
+  if (!session) return;
+  clearTimeout(session.reconnectTimer);
+  session.dataDisposable?.dispose();
+  session.exitDisposable?.dispose();
+  try { session.ptyProcess.kill(); } catch { /* zaten ölmüş */ }
+  sessions.delete(sessionId);
+}
+
 function attachSocket(session, sessionId, socket) {
   const { ptyProcess } = session;
 
-  // Önceki onData handler'ı temizle (yeniden bağlanma durumunda)
-  if (session.dataDisposable) {
-    session.dataDisposable.dispose();
-  }
+  // Önceki handler'ları temizle. Eskiden sadece onData temizleniyordu, onExit
+  // her yeniden bağlanmada tekrar ekleniyor ve listener birikiyordu.
+  session.dataDisposable?.dispose();
+  session.exitDisposable?.dispose();
+  clearTimeout(session.reconnectTimer);
+  session.reconnectTimer = null;
 
   session.dataDisposable = ptyProcess.onData(data => {
     session.buffer += data;
@@ -49,6 +62,14 @@ function attachSocket(session, sessionId, socket) {
     }
   });
 
+  session.exitDisposable = ptyProcess.onExit(() => {
+    sessions.delete(sessionId);
+    if (socket.readyState === 1) {
+      socket.send(JSON.stringify({ type: 'exit' }));
+      socket.close();
+    }
+  });
+
   socket.on('message', raw => {
     try {
       const msg = JSON.parse(raw.toString());
@@ -56,75 +77,62 @@ function attachSocket(session, sessionId, socket) {
       else if (msg.type === 'resize') ptyProcess.resize(msg.cols, msg.rows);
       else if (msg.type === 'kill') {
         // Kullanıcı terminali manuel kapattı
-        ptyProcess.kill();
-        sessions.delete(sessionId);
+        destroySession(sessionId);
       }
-    } catch {}
+    } catch { /* bozuk mesajı yok say */ }
   });
 
   socket.on('close', () => {
     // Hemen öldürme; yeniden bağlanma için bekle
-    if (session.reconnectTimer) clearTimeout(session.reconnectTimer);
-    session.reconnectTimer = setTimeout(() => {
-      ptyProcess.kill();
-      sessions.delete(sessionId);
-    }, RECONNECT_TIMEOUT);
+    if (!sessions.has(sessionId)) return;
+    clearTimeout(session.reconnectTimer);
+    session.reconnectTimer = setTimeout(() => destroySession(sessionId), config.terminalReconnectMs);
   });
 }
 
 export async function terminalWs(fastify) {
+  fastify.addHook('onClose', async () => {
+    for (const id of [...sessions.keys()]) destroySession(id);
+  });
+
   fastify.get('/ws/terminal', { websocket: true }, (socket, req) => {
-    try {
-      const token = req.cookies?.sp_token;
-      if (!token) { socket.send(JSON.stringify({ type: 'error', data: 'Unauthorized' })); socket.close(); return; }
-      fastify.jwt.verify(token);
-    } catch {
-      socket.send(JSON.stringify({ type: 'error', data: 'Unauthorized' })); socket.close(); return;
-    }
+    const user = verifyWsAuth(fastify, req);
+    if (!user) return rejectWs(socket);
 
     const requestedId = req.query?.sessionId;
     const existing = requestedId ? sessions.get(requestedId) : null;
 
     if (existing) {
-      // Mevcut session'a yeniden bağlan
-      if (existing.reconnectTimer) {
-        clearTimeout(existing.reconnectTimer);
-        existing.reconnectTimer = null;
-      }
+      // Session sahibi olmayan biri, geçerli bir token'la başkasının canlı
+      // shell'ine bağlanamasın.
+      if (existing.owner !== user.username) return rejectWs(socket, 'Session not available');
 
-      // Önce sessionId gönder, sonra buffer'ı gönder
       socket.send(JSON.stringify({ type: 'session', sessionId: requestedId }));
       if (existing.buffer.length > 0) {
         socket.send(JSON.stringify({ type: 'data', data: existing.buffer }));
       }
-
       attachSocket(existing, requestedId, socket);
-
-      existing.ptyProcess.onExit(() => {
-        sessions.delete(requestedId);
-        if (socket.readyState === 1) {
-          socket.send(JSON.stringify({ type: 'exit' }));
-          socket.close();
-        }
-      });
-    } else {
-      // Yeni session oluştur
-      const sessionId = Math.random().toString(36).slice(2);
-      const ptyProcess = spawnPty(80, 24);
-      const session = { ptyProcess, buffer: '', dataDisposable: null, reconnectTimer: null };
-      sessions.set(sessionId, session);
-
-      socket.send(JSON.stringify({ type: 'session', sessionId }));
-
-      attachSocket(session, sessionId, socket);
-
-      ptyProcess.onExit(() => {
-        sessions.delete(sessionId);
-        if (socket.readyState === 1) {
-          socket.send(JSON.stringify({ type: 'exit' }));
-          socket.close();
-        }
-      });
+      return;
     }
+
+    // Sınırsız session açılabilmesi PTY bombasına açık kapı bırakıyordu.
+    if (sessions.size >= config.maxTerminalSessions) {
+      return rejectWs(socket, `Terminal session limit reached (${config.maxTerminalSessions})`);
+    }
+
+    // Math.random() yerine kriptografik kimlik: session id'si tahmin edilemez.
+    const sessionId = randomUUID();
+    const session = {
+      ptyProcess: spawnPty(80, 24),
+      buffer: '',
+      owner: user.username,
+      dataDisposable: null,
+      exitDisposable: null,
+      reconnectTimer: null,
+    };
+    sessions.set(sessionId, session);
+
+    socket.send(JSON.stringify({ type: 'session', sessionId }));
+    attachSocket(session, sessionId, socket);
   });
 }

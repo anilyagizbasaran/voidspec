@@ -1,26 +1,40 @@
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { config } from '../config.js';
 import { logAuthEvent, readAuthEvents } from './logger.js';
+import { revokeToken } from './tokens.js';
 
 // In-memory brute-force tracker: keyed by client IP.
 // After MAX_FAILS failures the IP is locked for an escalating window.
 const attempts = new Map();
 const MAX_FAILS = 5;
 const BASE_LOCK_MS = 15 * 60 * 1000; // 15 min, doubles each further lockout
+const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+const ENTRY_TTL_MS = 60 * 60 * 1000; // son hareketten 1 saat sonra kaydı unut
 
 function getState(ip) {
   let s = attempts.get(ip);
   if (!s) {
-    s = { fails: 0, lockUntil: 0, lockCount: 0 };
+    s = { fails: 0, lockUntil: 0, lockCount: 0, seen: Date.now() };
     attempts.set(ip, s);
   }
+  s.seen = Date.now();
   return s;
 }
 
-export async function authRoutes(fastify) {
-  if (!config.adminPasswordHash) {
-    fastify.log.error('ADMIN_PASSWORD_HASH ayarlı değil — login devre dışı. .env yapılandırın.');
+// Kilidi bitmiş ve uzun süredir hareketsiz kayıtları temizle. Aksi halde
+// dağıtık deneme altında Map sınırsız büyüyordu.
+function sweepAttempts() {
+  const now = Date.now();
+  for (const [ip, s] of attempts) {
+    if (s.lockUntil <= now && now - s.seen > ENTRY_TTL_MS) attempts.delete(ip);
   }
+}
+
+export async function authRoutes(fastify) {
+  const sweepTimer = setInterval(sweepAttempts, SWEEP_INTERVAL_MS);
+  sweepTimer.unref();
+  fastify.addHook('onClose', async () => clearInterval(sweepTimer));
 
   fastify.post('/api/auth/login', {
     config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
@@ -56,9 +70,8 @@ export async function authRoutes(fastify) {
 
     // Always run bcrypt against a hash (constant-time) even on username
     // mismatch, so timing can't reveal whether the username was valid.
-    const hash = config.adminPasswordHash || '$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidin';
-    const passwordOk = await bcrypt.compare(password, hash);
-    const valid = username === config.adminUsername && passwordOk && !!config.adminPasswordHash;
+    const passwordOk = await bcrypt.compare(password, config.adminPasswordHash);
+    const valid = username === config.adminUsername && passwordOk;
 
     if (!valid) {
       state.fails += 1;
@@ -76,12 +89,16 @@ export async function authRoutes(fastify) {
     attempts.delete(ip);
     logAuthEvent({ result: 'success', username, ip, userAgent });
 
-    const token = fastify.jwt.sign({ username }, { expiresIn: '24h' });
+    // jti: logout'ta token'ı iptal edebilmek için benzersiz kimlik.
+    const token = fastify.jwt.sign(
+      { username, jti: randomUUID() },
+      { expiresIn: config.jwtExpiresIn },
+    );
 
     reply
       .setCookie('sp_token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: config.cookieSecure,
         sameSite: 'strict',
         path: '/',
         maxAge: 86400,
@@ -90,6 +107,17 @@ export async function authRoutes(fastify) {
   });
 
   fastify.post('/api/auth/logout', async (req, reply) => {
+    // Cookie'yi silmek yetmiyor: token 24 saat daha geçerli kalıyordu.
+    // jti'yi iptal listesine alıyoruz.
+    try {
+      const token = req.cookies?.sp_token;
+      if (token) {
+        const payload = fastify.jwt.verify(token);
+        await revokeToken(payload.jti, payload.exp);
+      }
+    } catch {
+      // Token zaten geçersiz/süresi dolmuş — iptal edilecek bir şey yok.
+    }
     reply.clearCookie('sp_token', { path: '/' }).send({ ok: true });
   });
 

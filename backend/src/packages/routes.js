@@ -1,16 +1,9 @@
-import { execSync, execFileSync } from 'child_process';
+import { host } from '../lib/host.js';
 
-const NS = ['nsenter', '--mount=/proc/1/ns/mnt', '--'];
-const ENV = { ...process.env, DEBIAN_FRONTEND: 'noninteractive', PATH: '/usr/sbin:/usr/bin:/sbin:/bin' };
+const APT_TIMEOUT = 120000;
 
-function run(cmd, opts = {}) {
-  try {
-    return execFileSync(NS[0], [...NS.slice(1), 'sh', '-c', cmd], { timeout: 30000, env: ENV, ...opts }).toString().trim();
-  } catch (e) { return e.stdout?.toString().trim() || ''; }
-}
-
-function runOrThrow(cmd, opts = {}) {
-  return execFileSync(NS[0], [...NS.slice(1), 'sh', '-c', cmd], { timeout: 120000, env: ENV, ...opts }).toString().trim();
+function combined({ stdout, stderr }) {
+  return [stdout, stderr].filter(Boolean).join('\n').trim();
 }
 
 // Parse dpkg -l output
@@ -20,7 +13,7 @@ function parseInstalled(raw) {
     if (!line.startsWith('ii')) continue;
     const parts = line.trim().split(/\s+/);
     if (parts.length < 4) continue;
-    const [status, name, version, arch, ...descParts] = parts;
+    const [, name, version, arch, ...descParts] = parts;
     pkgs.push({ name: name.split(':')[0], version, arch, description: descParts.join(' ') });
   }
   return pkgs;
@@ -41,8 +34,8 @@ function parseUpgradable(raw) {
 }
 
 // Validate package name — only safe chars
-const PKG_RE = /^[a-z0-9][a-z0-9.+\-]{0,200}$/;
-function validatePkg(name) {
+const PKG_RE = /^[a-z0-9][a-z0-9.+-]{0,200}$/;
+export function validatePkg(name) {
   if (!name || !PKG_RE.test(name))
     throw { code: 400, message: 'Invalid package name' };
 }
@@ -55,8 +48,8 @@ export async function packageRoutes(fastify) {
   // List installed
   fastify.get('/api/packages', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const { search = '', limit = '200', offset = '0' } = req.query;
-    const raw = run('dpkg -l');
-    let pkgs = parseInstalled(raw);
+    const { stdout } = await host(['dpkg', '-l'], { timeout: 30000 });
+    let pkgs = parseInstalled(stdout);
 
     if (search) {
       const q = search.toLowerCase();
@@ -66,14 +59,13 @@ export async function packageRoutes(fastify) {
     const total = pkgs.length;
     const lim = Math.max(1, Math.min(parseInt(limit, 10) || 200, 1000));
     const off = Math.max(0, parseInt(offset, 10) || 0);
-    const page  = pkgs.slice(off, off + lim);
-    reply.send({ packages: page, total });
+    reply.send({ packages: pkgs.slice(off, off + lim), total });
   });
 
   // Upgradable
   fastify.get('/api/packages/upgradable', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    const raw = run('apt list --upgradable 2>/dev/null');
-    reply.send({ packages: parseUpgradable(raw) });
+    const { stdout } = await host(['apt', 'list', '--upgradable'], { timeout: 30000 });
+    reply.send({ packages: parseUpgradable(stdout) });
   });
 
   // apt update (refresh package index)
@@ -81,12 +73,12 @@ export async function packageRoutes(fastify) {
     onRequest: [fastify.authenticate],
     config: { rateLimit: { max: 5, timeWindow: '10 minutes' } },
   }, async (req, reply) => {
-    const out = run('apt-get update -q 2>&1');
+    const res = await host(['apt-get', 'update', '-q'], { timeout: APT_TIMEOUT });
     fastify.log.info('apt update ran');
-    reply.send({ ok: true, output: out.slice(-2000) });
+    reply.send({ ok: res.ok, output: combined(res).slice(-2000) });
   });
 
-  // Install package — streams output via SSE
+  // Install package
   fastify.post('/api/packages/install', {
     onRequest: [fastify.authenticate],
     config: { rateLimit: { max: 10, timeWindow: '5 minutes' } },
@@ -94,13 +86,12 @@ export async function packageRoutes(fastify) {
     const { name } = req.body || {};
     try { validatePkg(name); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
 
-    try {
-      const out = runOrThrow(`apt-get install -y ${name} 2>&1`);
-      fastify.log.info({ name }, 'Package installed');
-      reply.send({ ok: true, output: out.slice(-3000) });
-    } catch (e) {
-      reply.code(500).send({ error: 'Install failed', output: e.stdout?.toString().slice(-2000) || e.message });
+    const res = await host(['apt-get', 'install', '-y', name], { timeout: APT_TIMEOUT });
+    if (!res.ok) {
+      return reply.code(500).send({ error: 'Install failed', output: combined(res).slice(-2000) });
     }
+    fastify.log.info({ name }, 'Package installed');
+    reply.send({ ok: true, output: combined(res).slice(-3000) });
   });
 
   // Remove package
@@ -116,14 +107,16 @@ export async function packageRoutes(fastify) {
       return reply.code(403).send({ error: `Package "${name}" is protected and cannot be removed` });
     }
 
-    try {
-      const flag = purge === 'true' ? '--purge' : '';
-      const out = runOrThrow(`apt-get remove ${flag} -y ${name} 2>&1`);
-      fastify.log.info({ name, purge }, 'Package removed');
-      reply.send({ ok: true, output: out.slice(-3000) });
-    } catch (e) {
-      reply.code(500).send({ error: 'Remove failed', output: e.stdout?.toString().slice(-2000) || e.message });
+    const args = ['apt-get', 'remove'];
+    if (purge === 'true') args.push('--purge');
+    args.push('-y', name);
+
+    const res = await host(args, { timeout: APT_TIMEOUT });
+    if (!res.ok) {
+      return reply.code(500).send({ error: 'Remove failed', output: combined(res).slice(-2000) });
     }
+    fastify.log.info({ name, purge }, 'Package removed');
+    reply.send({ ok: true, output: combined(res).slice(-3000) });
   });
 
   // Upgrade single or all packages
@@ -133,20 +126,20 @@ export async function packageRoutes(fastify) {
   }, async (req, reply) => {
     const { name } = req.body || {};
 
-    try {
-      let out;
-      if (name) {
-        validatePkg(name);
-        out = runOrThrow(`apt-get install --only-upgrade -y ${name} 2>&1`);
-        fastify.log.info({ name }, 'Package upgraded');
-      } else {
-        out = runOrThrow('apt-get upgrade -y 2>&1');
-        fastify.log.info('Full system upgrade ran');
-      }
-      reply.send({ ok: true, output: out.slice(-3000) });
-    } catch (e) {
-      reply.code(500).send({ error: 'Upgrade failed', output: e.stdout?.toString().slice(-2000) || e.message });
+    let args;
+    if (name) {
+      try { validatePkg(name); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
+      args = ['apt-get', 'install', '--only-upgrade', '-y', name];
+    } else {
+      args = ['apt-get', 'upgrade', '-y'];
     }
+
+    const res = await host(args, { timeout: APT_TIMEOUT });
+    if (!res.ok) {
+      return reply.code(500).send({ error: 'Upgrade failed', output: combined(res).slice(-2000) });
+    }
+    fastify.log.info({ name: name || 'all' }, 'Package upgrade ran');
+    reply.send({ ok: true, output: combined(res).slice(-3000) });
   });
 
   // Package info
@@ -154,8 +147,14 @@ export async function packageRoutes(fastify) {
     const { name } = req.params;
     try { validatePkg(name); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
 
-    const info   = run(`apt-cache show ${name} 2>/dev/null | head -40`);
-    const policy = run(`apt-cache policy ${name} 2>/dev/null`);
-    reply.send({ info, policy });
+    const [show, policy] = await Promise.all([
+      host(['apt-cache', 'show', name]),
+      host(['apt-cache', 'policy', name]),
+    ]);
+    // `| head -40` yerine kesmeyi burada yapıyoruz — shell'e ihtiyaç yok.
+    reply.send({
+      info: show.stdout.split('\n').slice(0, 40).join('\n'),
+      policy: policy.stdout,
+    });
   });
 }

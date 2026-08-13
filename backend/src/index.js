@@ -8,7 +8,8 @@ import fastifyMultipart from '@fastify/multipart';
 
 import { config } from './config.js';
 import { authRoutes } from './auth/routes.js';
-import { authenticate } from './auth/middleware.js';
+import { authenticate, isOriginAllowed } from './auth/middleware.js';
+import { loadRevokedTokens } from './auth/tokens.js';
 import { systemRoutes } from './system/routes.js';
 import { fileRoutes } from './files/routes.js';
 import { dockerRoutes } from './docker/routes.js';
@@ -26,13 +27,20 @@ import { logRoutes } from './logs/routes.js';
 // gerçek istemci IP'si X-Forwarded-For'dan doğru alınır ama dışarıdan gelen
 // sahte X-Forwarded-For başlıkları (IP spoofing ile log/lockout atlatma)
 // kabul edilmez.
-const fastify = Fastify({ logger: true, trustProxy: 'uniquelocal' });
+const fastify = Fastify({
+  logger: true,
+  trustProxy: 'uniquelocal',
+  // Panel 2-5 saniyede bir yoklama yapıyor; her istek loglanınca docker
+  // json-file log'u boş yere şişiyordu. Sadece hatalı ve yavaş istekleri
+  // logluyoruz (aşağıdaki onResponse hook'u).
+  disableRequestLogging: true,
+});
 
 // Decorate authenticate
 fastify.decorate('authenticate', authenticate);
 
 await fastify.register(fastifyCors, {
-  origin: config.allowedOrigin,
+  origin: config.allowedOrigins,
   credentials: true,
 });
 
@@ -44,7 +52,12 @@ await fastify.register(fastifyJwt, {
 });
 
 await fastify.register(fastifyRateLimit, {
-  global: false,
+  // Global taban limit: tek tek route'lar kendi (daha sıkı) limitlerini
+  // config.rateLimit ile geçersiz kılabilir. Panel saniyede birkaç yoklama
+  // yaptığı için taban bilerek yüksek — amaç normal kullanımı engellemek değil,
+  // sınırsız istek atılmasını kesmek.
+  max: 900,
+  timeWindow: '1 minute',
 });
 
 await fastify.register(fastifyMultipart, {
@@ -52,6 +65,31 @@ await fastify.register(fastifyMultipart, {
 });
 
 await fastify.register(fastifyWebsocket);
+
+// SameSite=strict cookie'nin yanında ikinci CSRF savunması: durum değiştiren
+// isteklerde Origin ya yapılandırılmış listede olmalı ya da isteğin kendi
+// host'u ile aynı olmalı.
+fastify.addHook('onRequest', async (request, reply) => {
+  if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS') return;
+  if (!isOriginAllowed(request)) {
+    return reply.code(403).send({ error: 'Origin not allowed' });
+  }
+});
+
+// Sadece hatalar ve yavaş istekler loglanır.
+fastify.addHook('onResponse', async (request, reply) => {
+  const ms = reply.elapsedTime;
+  if (reply.statusCode >= 400 || ms > 1000) {
+    request.log.warn({
+      method: request.method,
+      url: request.url,
+      statusCode: reply.statusCode,
+      ms: Math.round(ms),
+    }, 'request');
+  }
+});
+
+await loadRevokedTokens();
 
 // Routes
 await fastify.register(authRoutes);
@@ -68,7 +106,16 @@ await fastify.register(userRoutes);
 await fastify.register(packageRoutes);
 await fastify.register(logRoutes);
 
-fastify.get('/health', async () => ({ ok: true }));
+fastify.get('/health', { config: { rateLimit: false } }, async () => ({ ok: true }));
+
+// Kapatma sinyalinde açık PTY/stream'ler onClose hook'ları ile temizlenir.
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, async () => {
+    fastify.log.info({ signal }, 'Shutting down');
+    try { await fastify.close(); } catch { /* zaten kapanıyor */ }
+    process.exit(0);
+  });
+}
 
 try {
   await fastify.listen({ port: config.port, host: '0.0.0.0' });

@@ -1,35 +1,14 @@
-import { execSync, execFileSync } from 'child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from 'fs';
-
-const NS = 'nsenter --mount=/proc/1/ns/mnt --';
-const NS_ARGS = ['--mount=/proc/1/ns/mnt', '--'];
-
-function run(cmd) {
-  try {
-    return execSync(`${NS} ${cmd}`, { timeout: 8000 }).toString().trim();
-  } catch (e) { return e.stdout?.toString().trim() || ''; }
-}
-
-function runOrThrow(cmd) {
-  return execSync(`${NS} ${cmd}`, { timeout: 8000 }).toString().trim();
-}
-
-function runWithInput(cmdArgs, input) {
-  return execFileSync('nsenter', [...NS_ARGS, ...cmdArgs], {
-    input,
-    timeout: 8000,
-  }).toString().trim();
-}
+import { hostSync, hostSyncOrThrow, hostWithInput } from '../lib/host.js';
 
 const USERNAME_RE = /^[a-z_][a-z0-9_-]{0,31}$/;
 
-function validateUsername(name) {
+export function validateUsername(name) {
   if (!name || !USERNAME_RE.test(name))
     throw { code: 400, message: 'Invalid username (lowercase letters, digits, dash, underscore; max 32 chars)' };
 }
 
 function parsePasswd() {
-  const raw = run('getent passwd');
+  const raw = hostSync(['getent', 'passwd']);
   return raw.split('\n').filter(Boolean).map(line => {
     const [username, , uid, gid, gecos, home, shell] = line.split(':');
     return { username, uid: parseInt(uid), gid: parseInt(gid), gecos, home, shell };
@@ -37,27 +16,21 @@ function parsePasswd() {
 }
 
 function getUserGroups(username) {
-  try {
-    const out = run(`id -nG ${username}`);
-    return out.split(' ').filter(Boolean);
-  } catch { return []; }
+  return hostSync(['id', '-nG', username]).split(' ').filter(Boolean);
 }
 
 function isLocked(username) {
-  const out = run(`passwd -S ${username} 2>/dev/null`);
-  return out.split(' ')[1] === 'L';
+  return hostSync(['passwd', '-S', username]).split(' ')[1] === 'L';
 }
 
 function getLastLogin(username) {
-  try {
-    const out = run(`last ${username} -n 3 --time-format iso 2>/dev/null`);
-    return out.split('\n')
-      .filter(l => l.startsWith(username))
-      .map(l => {
-        const parts = l.trim().split(/\s+/);
-        return { from: parts[2] || '', date: parts[3] || '' };
-      });
-  } catch { return []; }
+  const out = hostSync(['last', username, '-n', '3', '--time-format', 'iso']);
+  return out.split('\n')
+    .filter(l => l.startsWith(username))
+    .map(l => {
+      const parts = l.trim().split(/\s+/);
+      return { from: parts[2] || '', date: parts[3] || '' };
+    });
 }
 
 // UIDs to always exclude
@@ -95,15 +68,12 @@ export async function userRoutes(fastify) {
     const user = all.find(u => u.username === username);
     if (!user) return reply.code(404).send({ error: 'User not found' });
 
-    const sshKeys = getSSHKeys(username, user.home);
-    const logins  = getLastLogin(username);
-
     reply.send({
       ...user,
       groups:   getUserGroups(username),
       locked:   isLocked(username),
-      sshKeys,
-      logins,
+      sshKeys:  getSSHKeys(user.home),
+      logins:   getLastLogin(username),
     });
   });
 
@@ -120,12 +90,18 @@ export async function userRoutes(fastify) {
     const existing = parsePasswd().find(u => u.username === username);
     if (existing) return reply.code(409).send({ error: 'Username already exists' });
 
-    const safeShell  = LOGIN_SHELLS.includes(shell) ? shell : '/bin/bash';
-    const safeComment = comment.replace(/[:']/g, '').slice(0, 60);
+    const safeShell = LOGIN_SHELLS.includes(shell) ? shell : '/bin/bash';
+    // Argümanlar shell'den geçmediği için tırnak kaçırmaya gerek yok; sadece
+    // passwd dosyasının alan ayracını ve satır sonlarını temizliyoruz.
+    const safeComment = String(comment).replace(/[:\r\n]/g, '').slice(0, 60);
 
-    runOrThrow(`useradd -m -s ${safeShell}${safeComment ? ` -c '${safeComment}'` : ''} ${username}`);
-    runWithInput(['chpasswd'], `${username}:${password}`);
-    if (wantSudo) runOrThrow(`usermod -aG sudo ${username}`);
+    const args = ['useradd', '-m', '-s', safeShell];
+    if (safeComment) args.push('-c', safeComment);
+    args.push(username);
+
+    hostSyncOrThrow(args);
+    hostWithInput(['chpasswd'], `${username}:${password}\n`);
+    if (wantSudo) hostSyncOrThrow(['usermod', '-aG', 'sudo', username]);
 
     fastify.log.info({ username }, 'User created');
     reply.send({ ok: true });
@@ -144,7 +120,7 @@ export async function userRoutes(fastify) {
     const user = parsePasswd().find(u => u.username === username);
     if (!user) return reply.code(404).send({ error: 'User not found' });
 
-    runOrThrow(`userdel${removeHome === 'true' ? ' -r' : ''} ${username}`);
+    hostSyncOrThrow(removeHome === 'true' ? ['userdel', '-r', username] : ['userdel', username]);
     fastify.log.info({ username, removeHome }, 'User deleted');
     reply.send({ ok: true });
   });
@@ -160,7 +136,10 @@ export async function userRoutes(fastify) {
     if (!password || password.length < 8)
       return reply.code(400).send({ error: 'Password must be at least 8 characters' });
 
-    runWithInput(['chpasswd'], `${username}:${password}`);
+    const user = parsePasswd().find(u => u.username === username);
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+
+    hostWithInput(['chpasswd'], `${username}:${password}\n`);
     fastify.log.info({ username }, 'Password changed');
     reply.send({ ok: true });
   });
@@ -172,7 +151,7 @@ export async function userRoutes(fastify) {
     try { validateUsername(username); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
     if (username === 'root') return reply.code(403).send({ error: 'Cannot lock root' });
 
-    runOrThrow(`passwd ${lock ? '-l' : '-u'} ${username}`);
+    hostSyncOrThrow(['passwd', lock ? '-l' : '-u', username]);
     fastify.log.info({ username, lock }, 'User lock toggled');
     reply.send({ ok: true });
   });
@@ -183,7 +162,7 @@ export async function userRoutes(fastify) {
     try { validateUsername(username); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
     const user = parsePasswd().find(u => u.username === username);
     if (!user) return reply.code(404).send({ error: 'User not found' });
-    reply.send({ keys: getSSHKeys(username, user.home) });
+    reply.send({ keys: getSSHKeys(user.home) });
   });
 
   fastify.post('/api/users/:username/ssh-keys', {
@@ -199,24 +178,18 @@ export async function userRoutes(fastify) {
     const user = parsePasswd().find(u => u.username === username);
     if (!user) return reply.code(404).send({ error: 'User not found' });
 
-    const sshDir  = `${user.home}/.ssh`;
+    const sshDir = `${user.home}/.ssh`;
     const authFile = `${sshDir}/authorized_keys`;
-    run(`mkdir -p ${sshDir}`);
-    run(`chmod 700 ${sshDir}`);
-    run(`touch ${authFile}`);
-    run(`chmod 600 ${authFile}`);
 
-    const existingKeys = getSSHKeys(username, user.home);
+    const existingKeys = getSSHKeys(user.home);
     if (existingKeys.some(k => k.raw === key.trim())) {
       return reply.code(409).send({ error: 'SSH key already exists' });
     }
 
-    execFileSync('nsenter', [...NS_ARGS, 'tee', '-a', authFile], {
-      input: key.trim() + '\n',
-      timeout: 8000,
-      stdio: ['pipe', 'ignore', 'pipe'],
-    });
-    run(`chown -R ${username}:${username} ${sshDir}`);
+    hostSync(['mkdir', '-p', sshDir]);
+    hostSync(['chmod', '700', sshDir]);
+    writeAuthorizedKeys(authFile, [...existingKeys.map(k => k.raw), key.trim()]);
+    hostSync(['chown', '-R', `${username}:${username}`, sshDir]);
 
     fastify.log.info({ username }, 'SSH key added');
     reply.send({ ok: true });
@@ -232,12 +205,13 @@ export async function userRoutes(fastify) {
     const user = parsePasswd().find(u => u.username === username);
     if (!user) return reply.code(404).send({ error: 'User not found' });
 
-    const authFile = `${user.home}/.ssh/authorized_keys`;
-    const keys = getSSHKeys(username, user.home);
+    const keys = getSSHKeys(user.home);
     if (isNaN(idx) || idx < 0 || idx >= keys.length) return reply.code(404).send({ error: 'Key not found' });
 
-    const remaining = keys.filter((_, i) => i !== idx).map(k => k.raw);
-    run(`bash -c "printf '%s\n' ${remaining.map(k => `'${k.replace(/'/g,'')}'`).join(' ')} > ${authFile}"`);
+    writeAuthorizedKeys(
+      `${user.home}/.ssh/authorized_keys`,
+      keys.filter((_, i) => i !== idx).map(k => k.raw),
+    );
 
     fastify.log.info({ username, idx }, 'SSH key deleted');
     reply.send({ ok: true });
@@ -245,26 +219,39 @@ export async function userRoutes(fastify) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function getSSHKeys(username, home) {
-  try {
-    const authFile = `${home}/.ssh/authorized_keys`;
-    const raw = run(`cat ${authFile} 2>/dev/null`);
-    return raw.split('\n').filter(Boolean).map((line, idx) => {
-      const parts = line.trim().split(/\s+/);
-      return {
-        idx,
-        type:    parts[0] || '',
-        key:     parts[1] ? parts[1].slice(0, 32) + '…' : '',
-        comment: parts.slice(2).join(' ') || '',
-        raw:     line.trim(),
-      };
-    });
-  } catch { return []; }
+function getSSHKeys(home) {
+  const raw = hostSync(['cat', `${home}/.ssh/authorized_keys`]);
+  return raw.split('\n').filter(Boolean).map((line, idx) => {
+    const parts = line.trim().split(/\s+/);
+    return {
+      idx,
+      type:    parts[0] || '',
+      key:     parts[1] ? parts[1].slice(0, 32) + '…' : '',
+      comment: parts.slice(2).join(' ') || '',
+      raw:     line.trim(),
+    };
+  });
+}
+
+// authorized_keys içeriğini stdin üzerinden yazar.
+//
+// Eskiden bu iş `bash -c "printf '%s\n' 'key' > dosya"` şeklinde, üstelik dış
+// bir shell'den geçerek yapılıyordu: bir anahtarın yorum alanındaki $(...) veya
+// backtick, dosya yazılırken komut olarak çalışıyordu. Artık içerik hiçbir
+// shell'den geçmiyor.
+function writeAuthorizedKeys(authFile, keys) {
+  const content = keys.filter(Boolean).join('\n');
+  hostWithInput(['tee', authFile], content ? content + '\n' : '', {
+    stdio: ['pipe', 'ignore', 'pipe'],
+  });
+  hostSync(['chmod', '600', authFile]);
 }
 
 const SSH_KEY_TYPES = ['ssh-rsa', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'sk-ssh-ed25519@openssh.com'];
 
-function isValidSSHKey(key) {
+export function isValidSSHKey(key) {
   const parts = key.trim().split(/\s+/);
-  return parts.length >= 2 && SSH_KEY_TYPES.includes(parts[0]);
+  // Anahtar tek satır olmalı; çok satırlı girdi ile ek satır enjekte edilemesin.
+  if (key.includes('\n') || key.includes('\r')) return false;
+  return parts.length >= 2 && SSH_KEY_TYPES.includes(parts[0]) && /^[A-Za-z0-9+/=]+$/.test(parts[1]);
 }
