@@ -5,7 +5,8 @@ RUN apt-get update && apt-get install -y sshpass openssh-client && rm -rf /var/l
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+# npm ci: package-lock.json'a birebir sadık, tekrarlanabilir kurulum.
+RUN npm ci --omit=dev
 
 COPY . .
 

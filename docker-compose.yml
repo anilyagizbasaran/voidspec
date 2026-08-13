@@ -1,25 +1,75 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
     container_name: serverpanel-backend
     restart: unless-stopped
     pid: host
-    privileged: true
+    # privileged: true yerine yalnızca gereken yetenekler.
+    # nsenter ile host mount namespace'ine geçmek için SYS_ADMIN + SYS_PTRACE,
+    # ufw/iptables için NET_ADMIN/NET_RAW, host dosyalarını okumak için
+    # DAC_READ_SEARCH gerekiyor.
+    cap_add:
+      - SYS_ADMIN
+      - SYS_PTRACE
+      - SYS_CHROOT
+      - SYS_RESOURCE
+      - SYS_NICE
+      - NET_ADMIN
+      - NET_RAW
+      - DAC_READ_SEARCH
+    security_opt:
+      - apparmor:unconfined
+    # ALLOWED_ORIGIN gibi değerler yalnızca backend/.env içinde tutulur —
+    # burada `environment:` ile tekrar tanımlanınca env_file'ı eziyor ve iki
+    # yerin senkron kalması gerekiyordu.
     env_file:
       - ./backend/.env
     environment:
-      - ALLOWED_ORIGIN=http://localhost
+      - NODE_ENV=production
+      - NODE_OPTIONS=--max-old-space-size=512
+      # Panel şu an HTTP (8080) üzerinden de kullanılabildiği için oturum
+      # çerezine Secure bayrağı konmuyor. Yalnızca HTTPS (8443) üzerinden
+      # kullanmaya geçtiğinizde bunu true yapın — çerez o zaman düz HTTP'de
+      # tarayıcı tarafından gönderilmez.
+      - COOKIE_SECURE=false
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root:/root
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   frontend:
     build: ./frontend
     container_name: serverpanel-frontend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8080:80"    # HTTP (mevcut adres, değişmedi)
+      - "8443:443"   # HTTPS (self-signed sertifika ile)
+    environment:
+      # Sertifikanın SAN alanına yazılır; panelin erişildiği IP/alan adı.
+      - PANEL_HOST=${PANEL_HOST:-161.97.155.142}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    volumes:
+      # Sertifika volume'da kalsın ki rebuild sonrası tarayıcı istisnası bozulmasın.
+      - serverpanel-certs:/etc/nginx/certs
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  serverpanel-certs:
