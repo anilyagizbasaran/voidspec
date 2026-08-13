@@ -6,6 +6,7 @@ import { spawn } from 'child_process';
 import { get as httpGet } from 'http';
 import { get as httpsGet } from 'https';
 import { resolveSafePath, assertMutable, assertInside, PathError } from '../lib/paths.js';
+import { toFs, hostFsEnabled } from '../lib/hostfs.js';
 
 function sendPathError(reply, err) {
   return reply.code(err?.statusCode || 400).send({ error: err?.message || 'Invalid path' });
@@ -15,7 +16,7 @@ function sendPathError(reply, err) {
 // sonucu döndürmek yerine null döner.
 function duSize(target, timeoutMs = 15000) {
   return new Promise((resolve) => {
-    const proc = spawn('du', ['-sb', '--', target]);
+    const proc = spawn('du', ['-sb', '--', toFs(target)]);
     let out = '';
     let done = false;
     const finish = (value) => {
@@ -49,12 +50,12 @@ export async function fileRoutes(fastify) {
     catch (err) { return sendPathError(reply, err); }
 
     try {
-      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      const entries = await fs.readdir(toFs(dirPath), { withFileTypes: true });
       const items = await Promise.all(
         entries.map(async entry => {
           const fullPath = path.join(dirPath, entry.name);
           try {
-            const stat = await fs.lstat(fullPath);
+            const stat = await fs.lstat(toFs(fullPath));
             return {
               name: entry.name,
               path: fullPath,
@@ -83,7 +84,9 @@ export async function fileRoutes(fastify) {
         return a.name.localeCompare(b.name);
       });
 
-      reply.send({ path: dirPath, items });
+      // hostFs=false ise konteynerin kendi kökü listeleniyor demektir; istemci
+      // bunu kullanıcıya bildirebilsin.
+      reply.send({ path: dirPath, items, hostFs: hostFsEnabled });
     } catch (err) {
       reply.code(400).send({ error: err.message });
     }
@@ -96,13 +99,77 @@ export async function fileRoutes(fastify) {
     catch (err) { return sendPathError(reply, err); }
 
     try {
-      const stat = await fs.stat(filePath);
+      const stat = await fs.stat(toFs(filePath));
       if (!stat.isFile()) return reply.code(400).send({ error: 'Not a regular file' });
       if (stat.size > 5 * 1024 * 1024) {
         return reply.code(400).send({ error: 'File too large (max 5MB)' });
       }
-      const content = await fs.readFile(filePath, 'utf8');
+      const content = await fs.readFile(toFs(filePath), 'utf8');
       reply.send({ path: filePath, content });
+    } catch (err) {
+      reply.code(400).send({ error: err.message });
+    }
+  });
+
+  // Save file content. Panel dosyayı açıp gösterebiliyor ama kaydedemiyordu —
+  // sunucu paneli için yapılandırma dosyasını düzenleyebilmek temel işlev.
+  fastify.post('/api/files/content', {
+    onRequest: [fastify.authenticate],
+    config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+  }, async (req, reply) => {
+    const { path: rawPath, content, backup = true } = req.body || {};
+    if (typeof content !== 'string') {
+      return reply.code(400).send({ error: 'content must be a string' });
+    }
+    if (Buffer.byteLength(content, 'utf8') > 5 * 1024 * 1024) {
+      return reply.code(413).send({ error: 'Content too large (max 5MB)' });
+    }
+
+    let filePath;
+    try { filePath = assertMutable(resolveSafePath(rawPath)); }
+    catch (err) { return sendPathError(reply, err); }
+
+    const fsPath = toFs(filePath);
+
+    try {
+      // Var olan dosyanın türünü koru: dizinin veya cihaz dosyasının üzerine
+      // yazmaya çalışmak sessiz bir felaket olurdu.
+      let existed = true;
+      try {
+        const stat = await fs.stat(fsPath);
+        if (!stat.isFile()) {
+          return reply.code(400).send({ error: 'Not a regular file' });
+        }
+      } catch (err) {
+        if (err.code !== 'ENOENT') throw err;
+        existed = false;
+      }
+
+      let backupPath = null;
+      if (existed && backup) {
+        backupPath = `${filePath}.bak`;
+        await fs.copyFile(fsPath, toFs(backupPath));
+      }
+
+      // Aynı dizine geçici dosya yazıp rename ile yer değiştiriyoruz: yazma
+      // yarıda kalırsa hedef dosya bozulmuş halde kalmıyor.
+      const tmpPath = `${fsPath}.serverpanel-tmp-${process.pid}`;
+      try {
+        await fs.writeFile(tmpPath, content, 'utf8');
+        if (existed) {
+          // Sahiplik/izinleri koru — rename bunları taşımaz.
+          const { mode, uid, gid } = await fs.stat(fsPath);
+          await fs.chmod(tmpPath, mode);
+          await fs.chown(tmpPath, uid, gid).catch(() => { /* izin yoksa geç */ });
+        }
+        await fs.rename(tmpPath, fsPath);
+      } catch (err) {
+        await fs.rm(tmpPath, { force: true }).catch(() => {});
+        throw err;
+      }
+
+      fastify.log.info({ path: filePath, created: !existed }, 'File saved');
+      reply.send({ ok: true, path: filePath, created: !existed, backupPath });
     } catch (err) {
       reply.code(400).send({ error: err.message });
     }
@@ -115,11 +182,11 @@ export async function fileRoutes(fastify) {
     catch (err) { return sendPathError(reply, err); }
 
     try {
-      await fs.access(filePath);
+      await fs.access(toFs(filePath));
       // Dosya adındaki tırnak/CR-LF header'ı bozabilir; temizliyoruz.
       const filename = path.basename(filePath).replace(/["\r\n]/g, '_');
       reply.header('Content-Disposition', `attachment; filename="${filename}"`);
-      reply.send(createReadStream(filePath));
+      reply.send(createReadStream(toFs(filePath)));
     } catch (err) {
       reply.code(400).send({ error: err.message });
     }
@@ -132,7 +199,7 @@ export async function fileRoutes(fastify) {
     catch (err) { return sendPathError(reply, err); }
 
     try {
-      await fs.access(targetPath);
+      await fs.access(toFs(targetPath));
       const name = path.basename(targetPath).replace(/["\r\n]/g, '_') || 'archive';
       const parentDir = path.dirname(targetPath);
       const baseName = path.basename(targetPath);
@@ -140,7 +207,7 @@ export async function fileRoutes(fastify) {
       reply.header('Content-Disposition', `attachment; filename="${name}.tar.gz"`);
       reply.header('Content-Type', 'application/gzip');
 
-      const tar = spawn('tar', ['-czf', '-', '-C', parentDir, '--', baseName]);
+      const tar = spawn('tar', ['-czf', '-', '-C', toFs(parentDir), '--', baseName]);
       tar.stderr.on('data', () => {});
       reply.raw.on('close', () => { try { tar.kill(); } catch { /* bitmiş */ } });
       reply.send(tar.stdout);
@@ -176,7 +243,7 @@ export async function fileRoutes(fastify) {
           // yazılmasını engelliyoruz.
           const safeName = path.basename(part.filename || '').replace(/^\.+/, '') || 'upload';
           const destPath = assertInside(targetDir, path.join(targetDir, safeName));
-          await pipeline(part.file, createWriteStream(destPath));
+          await pipeline(part.file, createWriteStream(toFs(destPath)));
           uploaded.push(safeName);
         }
       }
@@ -215,7 +282,7 @@ export async function fileRoutes(fastify) {
               const parts = await Promise.all(
                 cat.paths.map(async (p) => {
                   try {
-                    await fs.access(p);
+                    await fs.access(toFs(p));
                     const size = await duSize(p);
                     return size === null ? null : { path: p, size };
                   } catch { return null; }
@@ -228,7 +295,7 @@ export async function fileRoutes(fastify) {
             })
           ),
           new Promise((resolve) => {
-            const df = spawn('df', ['-B1', '/']);
+            const df = spawn('df', ['-B1', toFs('/')]);
             let out = '';
             df.stdout.on('data', d => { out += d; });
             df.on('close', () => {
@@ -263,7 +330,7 @@ export async function fileRoutes(fastify) {
     } catch (err) { return sendPathError(reply, err); }
 
     try {
-      await fs.cp(from, to, { recursive: true });
+      await fs.cp(toFs(from), toFs(to), { recursive: true });
       reply.send({ ok: true });
     } catch (err) {
       reply.code(400).send({ error: err.message });
@@ -279,7 +346,7 @@ export async function fileRoutes(fastify) {
     } catch (err) { return sendPathError(reply, err); }
 
     try {
-      await fs.rename(from, to);
+      await fs.rename(toFs(from), toFs(to));
       reply.send({ ok: true });
     } catch (err) {
       reply.code(400).send({ error: err.message });
@@ -324,7 +391,7 @@ export async function fileRoutes(fastify) {
               res.resume();
               return reject(new Error(`HTTP ${res.statusCode}`));
             }
-            const writer = createWriteStream(destPath);
+            const writer = createWriteStream(toFs(destPath));
             res.pipe(writer);
             writer.on('finish', resolve);
             writer.on('error', reject);
@@ -349,7 +416,7 @@ export async function fileRoutes(fastify) {
     catch (err) { return sendPathError(reply, err); }
 
     try {
-      await fs.rm(filePath, { recursive: true });
+      await fs.rm(toFs(filePath), { recursive: true });
       reply.send({ ok: true });
     } catch (err) {
       reply.code(400).send({ error: err.message });
@@ -363,7 +430,7 @@ export async function fileRoutes(fastify) {
     catch (err) { return sendPathError(reply, err); }
 
     try {
-      await fs.access(targetPath);
+      await fs.access(toFs(targetPath));
       const size = await duSize(targetPath);
       if (size === null) return reply.code(504).send({ error: 'du timed out' });
       reply.send({ path: targetPath, size });
@@ -379,7 +446,7 @@ export async function fileRoutes(fastify) {
     catch (err) { return sendPathError(reply, err); }
 
     try {
-      await fs.mkdir(dirPath, { recursive: true });
+      await fs.mkdir(toFs(dirPath), { recursive: true });
       reply.send({ ok: true });
     } catch (err) {
       reply.code(400).send({ error: err.message });

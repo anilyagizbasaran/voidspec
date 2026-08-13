@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import client from '../../api/client.js';
 import {
   Folder, File, ChevronRight, ArrowLeft, ArrowRight, RefreshCw,
-  Download, Trash2, FolderPlus, Upload, Eye, X,
+  Download, Trash2, FolderPlus, Upload, Eye, X, Save,
   Link, Pencil, Check, Archive, BarChart2, Copy, Scissors, Clipboard,
   HardDrive, Cpu, Package, Box, Users, Globe, ScrollText, Settings2, Clock,
 } from 'lucide-react';
@@ -209,6 +209,12 @@ export default function FileExplorer() {
 
   // UI state
   const [preview, setPreview] = useState(null);
+  // Dosya düzenleme: draft, preview.content'ten ayrı tutuluyor ki vazgeçince
+  // orijinal içerik geri gelsin.
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [dirSizes, setDirSizes] = useState({});
   const [showChart, setShowChart] = useState(true);
   const [loadingDu, setLoadingDu] = useState({});
@@ -486,11 +492,53 @@ export default function FileExplorer() {
   }, [data]);
 
   async function openFile(filePath) {
+    setEditing(false);
+    setSaveError('');
     try {
       const res = await client.get('/files/content', { params: { path: filePath } });
-      setPreview({ path: filePath, content: res.data.content });
+      // editable: içerik gerçekten okunabildiyse; hata metnini düzenlemek anlamsız.
+      setPreview({ path: filePath, content: res.data.content, editable: true });
     } catch (err) {
-      setPreview({ path: filePath, content: `Error: ${err.response?.data?.error || err.message}` });
+      setPreview({
+        path: filePath,
+        content: `Error: ${err.response?.data?.error || err.message}`,
+        editable: false,
+      });
+    }
+  }
+
+  function startEdit() {
+    setDraft(preview.content);
+    setSaveError('');
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setDraft('');
+    setSaveError('');
+  }
+
+  function closePreview() {
+    setPreview(null);
+    cancelEdit();
+  }
+
+  async function saveFile() {
+    if (saving) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      await client.post('/files/content', { path: preview.path, content: draft });
+      setPreview(p => ({ ...p, content: draft }));
+      setEditing(false);
+      setDraft('');
+      // Boyut/tarih sütunları güncellensin.
+      qc.invalidateQueries({ queryKey: ['files'] });
+    } catch (err) {
+      setSaveError(err.response?.data?.error || err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -865,17 +913,47 @@ export default function FileExplorer() {
         </div>
       </div>
 
-      {/* Preview */}
+      {/* Preview / editor */}
       {preview && (
         <div className="w-full md:w-1/2 flex flex-col border-l border-panel-border">
           <div className="flex items-center gap-2 px-3 py-2 border-b border-panel-border bg-panel-surface text-xs text-panel-muted">
             <span className="flex-1 truncate">{preview.path}</span>
+            {preview.editable && (editing ? (
+              <>
+                {saveError && <span className="text-red-400 truncate max-w-[40%]" title={saveError}>{saveError}</span>}
+                <button
+                  onClick={saveFile}
+                  disabled={saving}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-panel-accent/20 text-panel-accent hover:bg-panel-accent/30 disabled:opacity-50"
+                  title="Kaydet (Ctrl+S)"
+                >
+                  <Save size={12} /> {saving ? 'Kaydediliyor…' : 'Kaydet'}
+                </button>
+                <button onClick={cancelEdit} className="hover:text-panel-text" title="Vazgeç">Vazgeç</button>
+              </>
+            ) : (
+              <button onClick={startEdit} className="flex items-center gap-1 hover:text-panel-accent" title="Düzenle">
+                <Pencil size={12} /> Düzenle
+              </button>
+            ))}
             <button onClick={() => downloadFile(preview.path)} className="hover:text-panel-accent" title="İndir"><Download size={13} /></button>
-            <button onClick={() => setPreview(null)} className="hover:text-panel-text"><X size={14} /></button>
+            <button onClick={closePreview} className="hover:text-panel-text"><X size={14} /></button>
           </div>
-          <pre className="flex-1 overflow-auto p-3 text-xs text-panel-text font-mono leading-5 whitespace-pre-wrap break-all">
-            {preview.content}
-          </pre>
+          {editing ? (
+            <textarea
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={e => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveFile(); }
+              }}
+              spellCheck={false}
+              className="flex-1 overflow-auto p-3 text-xs text-panel-text bg-panel-bg font-mono leading-5 resize-none outline-none border-0 focus:ring-1 focus:ring-panel-accent/40"
+            />
+          ) : (
+            <pre className="flex-1 overflow-auto p-3 text-xs text-panel-text font-mono leading-5 whitespace-pre-wrap break-all">
+              {preview.content}
+            </pre>
+          )}
         </div>
       )}
     </div>

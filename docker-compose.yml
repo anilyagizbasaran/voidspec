@@ -27,6 +27,10 @@ services:
     environment:
       - NODE_ENV=production
       - NODE_OPTIONS=--max-old-space-size=512
+      # Host'un kök dizini konteynere buraya bağlanıyor; dosya gezgini yolları
+      # buna göre çeviriyor. Boş bırakılırsa panel konteynerin kendi dosya
+      # sistemini gösterir (yanlış /etc, eksik /var/www ...).
+      - HOST_FS_ROOT=/host
       # Panel şu an HTTP (8080) üzerinden de kullanılabildiği için oturum
       # çerezine Secure bayrağı konmuyor. Yalnızca HTTPS (8443) üzerinden
       # kullanmaya geçtiğinizde bunu true yapın — çerez o zaman düz HTTP'de
@@ -35,6 +39,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root:/root
+      # Dosya gezgininin sunucunun gerçek dosya sistemini görmesi için.
+      # Not: konteyner zaten docker.sock ve nsenter (SYS_ADMIN) ile host'ta tam
+      # root yetkisine sahip, dolayısıyla bu mount yeni bir sınır aşmıyor.
+      - /:/host
     mem_limit: 768m
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
