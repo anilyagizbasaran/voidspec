@@ -17,6 +17,8 @@ export function useAddCron() {
   });
 }
 
+// expectedRaw: kullanıcının ekranda gördüğü crontab satırı. Backend, satır
+// bu arada değişmişse 409 döner — yanlış satırı düzenlemek/silmek yerine.
 export function useUpdateCron() {
   const qc = useQueryClient();
   return useMutation({
@@ -28,7 +30,9 @@ export function useUpdateCron() {
 export function useDeleteCron() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: id => client.delete(`/cron/${encodeURIComponent(id)}`).then(r => r.data),
+    mutationFn: ({ id, expectedRaw }) => client
+      .delete(`/cron/${encodeURIComponent(id)}`, { params: { expectedRaw } })
+      .then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cron'] }),
   });
 }

@@ -254,7 +254,7 @@ export default function CronList() {
 
   async function handleEdit({ schedule, command }) {
     try {
-      await updateMutation.mutateAsync({ id: editTarget.id, schedule, command });
+      await updateMutation.mutateAsync({ id: editTarget.id, schedule, command, expectedRaw: editTarget.raw });
       setEditTarget(null);
       showToast(true, 'Job updated');
     } catch (e) {
@@ -264,7 +264,7 @@ export default function CronList() {
 
   async function handleToggle(job) {
     try {
-      await updateMutation.mutateAsync({ id: job.id, enabled: !job.enabled });
+      await updateMutation.mutateAsync({ id: job.id, enabled: !job.enabled, expectedRaw: job.raw });
       showToast(true, job.enabled ? 'Job disabled' : 'Job enabled');
     } catch (e) {
       showToast(false, e.response?.data?.error || 'Failed');
@@ -273,7 +273,7 @@ export default function CronList() {
 
   async function handleDelete() {
     try {
-      await deleteMutation.mutateAsync(deleteTarget.id);
+      await deleteMutation.mutateAsync({ id: deleteTarget.id, expectedRaw: deleteTarget.raw });
       setDeleteTarget(null);
       showToast(true, 'Job deleted');
     } catch (e) {

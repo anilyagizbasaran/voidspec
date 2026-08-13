@@ -107,6 +107,64 @@ export function useTerminal(containerRef, tabId) {
 
     connect();
 
+    function copyToClipboard(text) {
+      const hasApi = !!(navigator.clipboard?.writeText);
+      const secure = window.isSecureContext;
+      if (hasApi && secure) {
+        navigator.clipboard.writeText(text)
+          .then(() => term.write(`\r\n\x1b[36m[DEBUG copy: path=clipboard-api ok len=${text.length}]\x1b[0m\r\n`))
+          .catch((err) => {
+            term.write(`\r\n\x1b[31m[DEBUG copy: path=clipboard-api FAILED (${err.message}) -> fallback]\x1b[0m\r\n`);
+            fallbackCopy(text);
+          });
+      } else {
+        term.write(`\r\n\x1b[36m[DEBUG copy: hasApi=${hasApi} secure=${secure} -> fallback]\x1b[0m\r\n`);
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      let ok = false;
+      let err = null;
+      try {
+        ok = document.execCommand('copy');
+      } catch (e) {
+        err = e.message;
+      }
+      document.body.removeChild(ta);
+      term.write(`\r\n\x1b[36m[DEBUG copy: path=execCommand ok=${ok} err=${err} len=${text.length}]\x1b[0m\r\n`);
+    }
+
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== 'keydown') return true;
+
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === 'c') {
+        if (term.hasSelection()) {
+          copyToClipboard(term.getSelection());
+          return false;
+        }
+        term.write(`\r\n\x1b[33m[DEBUG: ctrl+c pressed but hasSelection()=false]\x1b[0m\r\n`);
+        return true;
+      }
+
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === 'v') {
+        // Bypass xterm's own handling (which would preventDefault and swallow
+        // the keystroke as a raw ^V control byte) so the browser's native
+        // paste action fires the 'paste' DOM event handled below. This works
+        // without the Clipboard API, so it's fine on non-HTTPS origins too.
+        return false;
+      }
+
+      return true;
+    });
+
     term.onData(data => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'input', data }));

@@ -1,20 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { LayoutDashboard, Terminal, FolderOpen, Container, Activity, Server, Clock, Shield, Package, ScrollText, Cpu, History, MoreHorizontal } from 'lucide-react';
-import { useStore } from '../../store/useStore.js';
-
-const navItems = [
-  { id: 'dashboard', icon: LayoutDashboard, label: 'Overview'  },
-  { id: 'terminal',  icon: Terminal,         label: 'Terminal'  },
-  { id: 'files',     icon: FolderOpen,       label: 'Files'     },
-  { id: 'docker',    icon: Container,        label: 'Docker'    },
-  { id: 'processes', icon: Activity,         label: 'Processes' },
-  { id: 'services',  icon: Server,           label: 'Services'  },
-  { id: 'cron',      icon: Clock,            label: 'Cron'      },
-  { id: 'firewall',  icon: Shield,           label: 'Firewall'  },
-  { id: 'packages',  icon: Package,          label: 'Packages'  },
-  { id: 'logs',      icon: ScrollText,       label: 'Logs'      },
-  { id: 'loginhistory', icon: History,       label: 'Giriş Geçmişi' },
-];
+import { useNavigate, useParams } from 'react-router-dom';
+import { Cpu, MoreHorizontal } from 'lucide-react';
+import { PANELS } from '../../panels.js';
 
 function FloatingLabel({ label, y }) {
   return (
@@ -43,14 +30,20 @@ function FloatingLabel({ label, y }) {
 const MOBILE_PRIMARY = 7;
 
 export default function Sidebar() {
-  const { activeTab, setActiveTab } = useStore();
+  // Aktif panel artık store'da değil URL'de tutuluyor.
+  const { tab: activeTab } = useParams();
+  const navigate = useNavigate();
   const [tooltip, setTooltip] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const showTimer = useRef(null);
 
-  const primaryItems = navItems.slice(0, MOBILE_PRIMARY);
-  const overflowItems = navItems.slice(MOBILE_PRIMARY);
+  const primaryItems = PANELS.slice(0, MOBILE_PRIMARY);
+  const overflowItems = PANELS.slice(MOBILE_PRIMARY);
   const overflowActive = overflowItems.some(i => i.id === activeTab);
+
+  function go(id) {
+    navigate(`/${id}`);
+  }
 
   function onEnter(e, label) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -79,14 +72,17 @@ export default function Sidebar() {
 
         {/* Nav */}
         <nav className="flex flex-col gap-0.5 p-2 flex-1 overflow-y-auto">
-          {navItems.map(({ id, icon: Icon, label }) => {
+          {PANELS.map(({ id, icon: Icon, label }) => {
             const active = activeTab === id;
             return (
               <button
                 key={id}
-                onClick={() => { setActiveTab(id); setTooltip(null); }}
+                onClick={() => { go(id); setTooltip(null); }}
                 onMouseEnter={(e) => onEnter(e, label)}
                 onMouseLeave={onLeave}
+                title={label}
+                aria-label={label}
+                aria-current={active ? 'page' : undefined}
                 className={`relative flex items-center justify-center py-2.5 rounded-lg transition-all duration-150 w-full
                   ${active
                     ? 'bg-panel-accent/10 text-panel-accent'
@@ -124,7 +120,7 @@ export default function Sidebar() {
               {overflowItems.map(({ id, icon: Icon, label }) => (
                 <button
                   key={id}
-                  onClick={() => { setActiveTab(id); setMoreOpen(false); }}
+                  onClick={() => { go(id); setMoreOpen(false); }}
                   className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-colors
                     ${activeTab === id ? 'text-panel-accent bg-panel-accent/10' : 'text-panel-muted hover:bg-panel-hover'}`}
                 >
@@ -142,7 +138,8 @@ export default function Sidebar() {
         {primaryItems.map(({ id, icon: Icon, label }) => (
           <button
             key={id}
-            onClick={() => { setActiveTab(id); setMoreOpen(false); }}
+            onClick={() => { go(id); setMoreOpen(false); }}
+            aria-current={activeTab === id ? 'page' : undefined}
             className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors
               ${activeTab === id ? 'text-panel-accent' : 'text-panel-muted'}`}
           >

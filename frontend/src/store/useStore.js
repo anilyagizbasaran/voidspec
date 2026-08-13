@@ -5,11 +5,8 @@ export const useStore = create((set) => ({
   setUser: (user) => set({ user }),
   clearUser: () => set({ user: null }),
 
-  activeTab: 'dashboard',
-  setActiveTab: (tab) => set({ activeTab: tab }),
-
-  sidebarCollapsed: false,
-  toggleSidebar: () => set(state => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  // activeTab artık burada değil URL'de (bkz. panels.js + App.jsx).
+  // sidebarCollapsed hiç kullanılmıyordu, kaldırıldı.
 
   terminalTabs: [{ id: '1', title: 'Terminal 1' }],
   activeTerminalTab: '1',

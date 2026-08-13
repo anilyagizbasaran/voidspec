@@ -514,9 +514,13 @@ export default function FileExplorer() {
     setUploading(true);
     try {
       const form = new FormData();
-      form.append('path', path);
       for (const file of files) form.append('file', file);
-      await client.post('/files/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      // Hedef dizini query string ile gönderiyoruz: multipart alan sırasından
+      // bağımsız, backend dosyaları yanlış dizine yazamaz.
+      await client.post('/files/upload', form, {
+        params: { path },
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       setDirSizes({});
       refetch();
     } finally {

@@ -47,7 +47,8 @@ export function useLogStream(params, active) {
     if (!active) return;
 
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const base  = `${proto}://${window.location.host}/api/logs/stream`;
+    // /api/ altındaki yolu nginx WebSocket olarak proxy'lemiyordu; route /ws/ altına taşındı.
+    const base  = `${proto}://${window.location.host}/ws/logs/stream`;
     const qs    = new URLSearchParams();
     if (params.unit)     qs.set('unit', params.unit);
     if (params.priority) qs.set('priority', params.priority);

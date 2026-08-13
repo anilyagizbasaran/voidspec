@@ -8,7 +8,10 @@ const client = axios.create({
 client.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401 && window.location.pathname !== '/login') {
+    // skipAuthRedirect: oturum kontrolü (/auth/me) gibi "401 normaldir"
+    // isteklerinde tam sayfa yönlendirmesi yapma.
+    const skip = err.config?.skipAuthRedirect;
+    if (!skip && err.response?.status === 401 && window.location.pathname !== '/login') {
       window.location.href = '/login';
     }
     return Promise.reject(err);
