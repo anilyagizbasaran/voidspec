@@ -46,7 +46,7 @@ function AddRuleModal({ sshPort, onClose, onAdd, loading }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-lg p-5 flex flex-col gap-4">
+      <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-lg p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <Shield size={14} className="text-panel-muted" />
           <h3 className="text-panel-text text-sm font-medium">Add Firewall Rule</h3>
@@ -156,7 +156,7 @@ function AddRuleModal({ sshPort, onClose, onAdd, loading }) {
 function ToggleConfirm({ active, sshPort, onConfirm, onClose, loading }) {
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-sm p-5 flex flex-col gap-4">
+      <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-sm p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <AlertTriangle size={14} className={active ? 'text-panel-yellow' : 'text-panel-green'} />
           <h3 className="text-panel-text text-sm font-medium">
@@ -271,7 +271,7 @@ export default function FirewallPanel() {
       </div>
 
       {/* Status card */}
-      <div className={`rounded-lg border p-4 flex items-center gap-4 ${
+      <div className={`rounded border p-4 flex items-center gap-4 ${
         active
           ? 'bg-panel-green/5 border-panel-green/30'
           : 'bg-panel-red/5 border-panel-red/30'
@@ -286,7 +286,7 @@ export default function FirewallPanel() {
           </p>
           <p className="text-panel-muted text-xs mt-0.5">
             {active
-              ? `${rules.length} rule${rules.length !== 1 ? 's' : ''} · SSH port ${data?.sshPort} ${data?.sshProtected ? 'protected ✓' : 'not in rules'}`
+              ? `${rules.length} kural, SSH portu ${data?.sshPort} ${data?.sshProtected ? 'protected ✓' : 'not in rules'}`
               : 'All incoming connections are permitted (no filtering)'
             }
           </p>
@@ -312,9 +312,9 @@ export default function FirewallPanel() {
       </div>
 
       {/* UFW rules table */}
-      <div className="bg-panel-surface border border-panel-border rounded-xl overflow-x-auto">
+      <div className="bg-panel-surface border border-panel-border rounded-md overflow-x-auto">
         <div className="px-4 py-2.5 border-b border-panel-border flex items-center gap-2">
-          <span className="text-panel-muted text-xs uppercase tracking-wider">UFW Rules</span>
+          <span className="text-panel-muted text-sm font-medium">UFW kuralları</span>
           <span className="text-panel-muted text-xs ml-1">({rules.length})</span>
         </div>
         {isLoading ? (
@@ -380,14 +380,14 @@ export default function FirewallPanel() {
 
       {/* iptables collapsible */}
       {ipt && (
-        <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden">
+        <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden">
           <button
             onClick={() => setIptablesOpen(o => !o)}
             className="w-full px-4 py-2.5 flex items-center gap-2 text-left hover:bg-panel-hover/30"
           >
             {iptablesOpen ? <ChevronDown size={13} className="text-panel-muted" /> : <ChevronRight size={13} className="text-panel-muted" />}
-            <span className="text-panel-muted text-xs uppercase tracking-wider">iptables (read-only)</span>
-            <span className="text-panel-muted text-xs ml-1">INPUT: {ipt.input.length} · OUTPUT: {ipt.output.length}</span>
+            <span className="text-panel-muted text-sm font-medium">iptables (salt okunur)</span>
+            <span className="text-panel-muted text-xs ml-1">INPUT {ipt.input.length}, OUTPUT {ipt.output.length}</span>
           </button>
           {iptablesOpen && (
             <div className="border-t border-panel-border p-4 space-y-4">
@@ -449,7 +449,7 @@ export default function FirewallPanel() {
 
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-sm p-5 flex flex-col gap-4">
+          <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-sm p-5 flex flex-col gap-4">
             <div className="flex items-center gap-2">
               <AlertTriangle size={14} className="text-panel-yellow" />
               <h3 className="text-panel-text text-sm font-medium">Delete Rule #{deleteTarget.num}?</h3>
@@ -473,7 +473,7 @@ export default function FirewallPanel() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-20 md:bottom-4 right-4 px-4 py-2.5 rounded-lg border text-xs font-mono z-50 shadow-lg ${
+        <div className={`fixed bottom-20 md:bottom-4 right-4 px-4 py-2.5 rounded border text-xs font-mono z-50 shadow-lg ${
           toast.ok ? 'bg-panel-green/10 border-panel-green text-panel-green'
                    : 'bg-panel-red/10 border-panel-red text-panel-red'
         }`}>{toast.msg}</div>

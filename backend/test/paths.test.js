@@ -44,3 +44,9 @@ test('assertInside hedef dizinden kaçmayı engeller', () => {
   // Aynı önekle başlayan komşu dizin de içeride sayılmamalı.
   assert.throws(() => assertInside('/tmp/up', '/tmp/upload/x'), PathError);
 });
+
+test('isVirtualFsPath yalnızca /proc, /sys, /dev ve altlarını yakalar', async () => {
+  const { isVirtualFsPath } = await import('../src/files/routes.js');
+  for (const p of ['/proc', '/proc/1', '/sys/class', '/dev']) assert.equal(isVirtualFsPath(p), true, p);
+  for (const p of ['/', '/process', '/var', '/devices', '/root/proc']) assert.equal(isVirtualFsPath(p), false, p);
+});

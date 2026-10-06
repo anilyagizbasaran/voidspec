@@ -96,7 +96,7 @@ function PreviewPortRows() {
     <div className="flex flex-col gap-1 justify-center h-full px-2">
       {[22, 80, 443, 3000].map(port => (
         <div key={port} className="flex items-center gap-1.5">
-          <span className="text-[9px] font-mono text-panel-green w-8">{port}</span>
+          <span className="text-[10px] font-mono text-panel-green w-8">{port}</span>
           <div className="h-1 rounded-full flex-1 opacity-20 bg-white" />
         </div>
       ))}
@@ -110,17 +110,17 @@ const PREVIEWS = {
   memory:       ({ color }) => <PreviewResourceCard color={color} />,
   disk:         ({ color }) => <PreviewResourceCard color={color} />,
   network:      ({ color }) => <PreviewSparkline color={color} />,
-  firewall:     ({ color }) => <PreviewStatusCard colors={[color, '#30363d']} />,
-  docker:       ({ color }) => <PreviewStatusCard colors={[color, '#30363d', '#30363d']} />,
-  services:     ({ color }) => <PreviewStatusCard colors={[color, color, '#f85149']} />,
-  processes:    ({ color }) => <PreviewStatusCard colors={['#7d8590', '#7d8590', '#7d8590']} />,
-  topprocs:     ({ color }) => <PreviewDotRow colors={[color, color, '#d29922', '#f85149', color]} />,
-  recentlogs:   ({ color }) => <PreviewDotRow colors={['#f85149', '#d29922', '#f85149', color, '#d29922']} />,
-  cpuramchart:  ({ color }) => <PreviewChart color1={color} color2="#39c5cf" />,
-  networkchart: ({ color }) => <PreviewChart color1="#58a6ff" color2="#d29922" />,
-  dockerlist:   ({ color }) => <PreviewDotRow colors={[color, color, '#7d8590', '#f85149']} />,
+  firewall:     ({ color }) => <PreviewStatusCard colors={[color, '#36414c']} />,
+  docker:       ({ color }) => <PreviewStatusCard colors={[color, '#36414c', '#36414c']} />,
+  services:     ({ color }) => <PreviewStatusCard colors={[color, color, '#ef5a50']} />,
+  processes:    ({ color }) => <PreviewStatusCard colors={['#95a0aa', '#95a0aa', '#95a0aa']} />,
+  topprocs:     ({ color }) => <PreviewDotRow colors={[color, color, '#eea53b', '#ef5a50', color]} />,
+  recentlogs:   ({ color }) => <PreviewDotRow colors={['#ef5a50', '#eea53b', '#ef5a50', color, '#eea53b']} />,
+  cpuramchart:  ({ color }) => <PreviewChart color1={color} color2="#63bfd8" />,
+  networkchart: ({ color }) => <PreviewChart color1="#d8cfbd" color2="#eea53b" />,
+  dockerlist:   ({ color }) => <PreviewDotRow colors={[color, color, '#95a0aa', '#ef5a50']} />,
   disklist:     ({ color }) => <PreviewResourceCard color={color} />,
-  diskio:       ({ color }) => <PreviewChart color1={color} color2="#d29922" />,
+  diskio:       ({ color }) => <PreviewChart color1={color} color2="#eea53b" />,
   cpucores:     ({ color }) => <PreviewBars color={color} values={[35, 72, 28, 91, 45, 63, 18, 55]} />,
   swap:         ({ color }) => <PreviewSparkline color={color} />,
   ports:        ()           => <PreviewPortRows />,
@@ -140,9 +140,9 @@ function WidgetCard({ id, reg, active, onToggle }) {
   return (
     <button
       onClick={() => onToggle(id)}
-      className={`group relative flex flex-col rounded-xl border text-left transition-all duration-150 overflow-hidden
+      className={`group relative flex flex-col rounded-md border text-left transition-all duration-150 overflow-hidden
         ${active
-          ? 'border-panel-accent/40 bg-panel-accent/6 shadow-[0_0_16px_rgba(88,166,255,0.08)]'
+          ? 'border-panel-accent/40 bg-panel-accent/6 shadow-[0_0_16px_rgba(216, 207, 189,0.08)]'
           : 'border-panel-border bg-panel-surface hover:border-panel-border/80 hover:bg-panel-hover'
         }`}
     >
@@ -162,7 +162,7 @@ function WidgetCard({ id, reg, active, onToggle }) {
         <div className="flex items-start justify-between gap-1">
           <div className="flex items-center gap-1.5 min-w-0">
             {Icon && (
-              <Icon size={12} style={{ color: active ? reg.color : '#7d8590' }} className="shrink-0 transition-colors" />
+              <Icon size={12} style={{ color: active ? reg.color : '#95a0aa' }} className="shrink-0 transition-colors" />
             )}
             <span className={`text-xs font-medium truncate transition-colors ${active ? 'text-panel-text' : 'text-panel-muted'}`}>
               {reg.label}
@@ -171,19 +171,19 @@ function WidgetCard({ id, reg, active, onToggle }) {
           <div className={`shrink-0 w-4 h-4 rounded-full flex items-center justify-center transition-all ${
             active ? 'text-panel-accent' : 'text-panel-muted/30 group-hover:text-panel-muted/60'
           }`} style={{ background: active ? `${reg.color}20` : undefined }}>
-            {active ? <Check size={9} /> : <span className="text-[10px] leading-none">+</span>}
+            {active ? <Check size={9} /> : <span className="text-[11px] leading-none">+</span>}
           </div>
         </div>
 
         {reg.description && (
-          <p className="text-[10px] text-panel-muted/60 leading-snug line-clamp-2">{reg.description}</p>
+          <p className="text-[11px] text-panel-muted/60 leading-snug line-clamp-2">{reg.description}</p>
         )}
 
         <div className="mt-auto pt-1 flex items-center justify-between">
-          <span className="text-[9px] text-panel-muted/40 font-mono">
+          <span className="text-[10px] text-panel-muted/40 font-mono">
             {reg.defaultLayout.w}×{reg.defaultLayout.h}
           </span>
-          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
             active ? 'text-panel-green bg-panel-green/10' : 'text-panel-muted/40 bg-panel-hover'
           }`}>
             {active ? 'Aktif' : 'Gizli'}
@@ -200,19 +200,19 @@ export default function WidgetGallery({ visible, onToggle, onClose }) {
   const hiddenCount  = Object.keys(WIDGET_REGISTRY).length - activeCount;
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col" style={{ background: 'rgba(13,17,23,0.97)', backdropFilter: 'blur(12px)' }}>
+    <div className="absolute inset-0 z-50 flex flex-col" style={{ background: 'rgba(27,34,41,0.97)', backdropFilter: 'blur(12px)' }}>
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-panel-accent/10 border border-panel-accent/20">
+          <div className="p-2 rounded bg-panel-accent/10 border border-panel-accent/20">
             <LayoutGrid size={15} className="text-panel-accent" />
           </div>
           <div>
             <h2 className="text-panel-text text-sm font-semibold">Widget Galerisi</h2>
             <p className="text-panel-muted text-xs mt-0.5">
               <span className="text-panel-green">{activeCount} aktif</span>
-              {hiddenCount > 0 && <span className="text-panel-muted/60"> · {hiddenCount} gizli</span>}
+              {hiddenCount > 0 && <span className="text-panel-muted/60">, {hiddenCount} gizli</span>}
             </p>
           </div>
         </div>
@@ -236,7 +236,7 @@ export default function WidgetGallery({ visible, onToggle, onClose }) {
 
         <button
           onClick={onClose}
-          className="p-2 text-panel-muted hover:text-panel-text hover:bg-panel-hover rounded-lg transition-all"
+          className="p-2 text-panel-muted hover:text-panel-text hover:bg-panel-hover rounded transition-all"
         >
           <X size={16} />
         </button>
@@ -258,9 +258,9 @@ export default function WidgetGallery({ visible, onToggle, onClose }) {
           return (
             <div key={cat.key}>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] uppercase tracking-widest text-panel-muted/50 font-medium">{cat.label}</span>
+                <span className="text-xs text-panel-muted/70 font-medium">{cat.label}</span>
                 <div className="flex-1 h-px bg-panel-border/40" />
-                <span className="text-[10px] text-panel-muted/40">
+                <span className="text-[11px] text-panel-muted/40">
                   {widgets.filter(id => visible.includes(id)).length}/{widgets.length}
                 </span>
               </div>
@@ -298,10 +298,10 @@ export default function WidgetGallery({ visible, onToggle, onClose }) {
 
       {/* ── Footer ── */}
       <div className="shrink-0 px-6 py-3 border-t border-panel-border flex items-center justify-between">
-        <span className="text-[11px] text-panel-muted/50">Widget kartına tıkla → görünürlüğü değiştir</span>
+        <span className="text-[11px] text-panel-muted/50">Göstermek ya da gizlemek için widget kartına tıkla</span>
         <button
           onClick={onClose}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-xs bg-panel-accent/15 border border-panel-accent/30 rounded-lg text-panel-accent hover:bg-panel-accent/25 transition-all"
+          className="flex items-center gap-1.5 px-4 py-1.5 text-xs bg-panel-accent/15 border border-panel-accent/30 rounded text-panel-accent hover:bg-panel-accent/25 transition-all"
         >
           <Check size={11} />
           Tamam

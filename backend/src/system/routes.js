@@ -1,6 +1,7 @@
 import si from 'systeminformation';
 import os from 'os';
 import { hostNet } from '../lib/host.js';
+import { networkStats, hostInterfaces } from './netstats.js';
 
 // `ss -tulnp` çıktısını satır satır çözer:
 // tcp LISTEN 0 511 0.0.0.0:8080 0.0.0.0:* users:(("docker-proxy",pid=123,fd=4))
@@ -42,11 +43,13 @@ export function parseSsOutput(raw) {
 
 export async function systemRoutes(fastify) {
   fastify.get('/api/system/stats', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    const [cpu, mem, disk, network, diskIO] = await Promise.all([
+    const [cpu, mem, disk, net, diskIO] = await Promise.all([
       si.currentLoad(),
       si.mem(),
       si.fsSize(),
-      si.networkStats('*'),
+      // si.networkStats() konteynerin kendi veth'ini ölçüyordu; netstats.js
+      // host'un /proc/1/net/dev sayaçlarını okuyor.
+      networkStats(fastify.log),
       si.disksIO().catch(() => null),
     ]);
 
@@ -81,28 +84,21 @@ export async function systemRoutes(fastify) {
         readSec: Math.round((diskIO.rBps || 0)),
         writeSec: Math.round((diskIO.wBps || 0)),
       } : null,
-      network: network
-        .filter(n => n.iface && !n.iface.startsWith('lo'))
-        .map(n => ({
-          iface: n.iface,
-          rx: Math.max(0, n.rx_sec || 0),
-          tx: Math.max(0, n.tx_sec || 0),
-          rxTotal: n.rx_bytes,
-          txTotal: n.tx_bytes,
-        })),
+      network: net.network,
+      // Toplam indirme/yükleme: yalnızca varsayılan rotanın arayüzü. Tünel
+      // arayüzlerini de toplarsak aynı paketi iki kez sayarız.
+      networkTotal: net.networkTotal,
       uptime: timeData.uptime,
     });
   });
 
   fastify.get('/api/system/hardware', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    const [cpuInfo, cpuTemp, osInfo, netIfaces] = await Promise.all([
+    const [cpuInfo, cpuTemp, osInfo, ifaces] = await Promise.all([
       si.cpu(),
       si.cpuTemperature().catch(() => ({ main: null, cores: [] })),
       si.osInfo(),
-      si.networkInterfaces('*').catch(() => []),
+      hostInterfaces().catch(() => []),
     ]);
-
-    const ifaces = Array.isArray(netIfaces) ? netIfaces : [netIfaces].filter(Boolean);
 
     reply.send({
       cpu: {
@@ -122,17 +118,7 @@ export async function systemRoutes(fastify) {
         arch: osInfo.arch,
         hostname: osInfo.hostname,
       },
-      network: ifaces
-        .filter(n => !n.internal)
-        .map(n => ({
-          iface: n.iface,
-          ip4: n.ip4,
-          ip6: n.ip6,
-          mac: n.mac,
-          type: n.type,
-          speed: n.speed,
-          operstate: n.operstate,
-        })),
+      network: ifaces,
     });
   });
 

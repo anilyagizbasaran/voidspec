@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Square, RotateCcw, Trash2, ScrollText, ExternalLink } from 'lucide-react';
+import { Play, Square, RotateCcw, Trash2, ScrollText, ShieldCheck } from 'lucide-react';
 import { useContainerAction } from '../../hooks/useDocker.js';
 import ContainerLogs from './ContainerLogs.jsx';
 
@@ -11,13 +11,13 @@ function formatBytes(bytes) {
 }
 
 const STATE_CFG = {
-  running: { dot: 'bg-panel-green', badge: 'text-panel-green bg-panel-green/10 border-panel-green/20', label: 'running' },
-  exited:  { dot: 'bg-panel-red',   badge: 'text-panel-red   bg-panel-red/10   border-panel-red/20',   label: 'exited'  },
-  paused:  { dot: 'bg-panel-yellow',badge: 'text-panel-yellow bg-panel-yellow/10 border-panel-yellow/20', label: 'paused' },
-  created: { dot: 'bg-panel-muted', badge: 'text-panel-muted bg-panel-hover border-panel-border',       label: 'created' },
+  running: { led: 'led-ok',   label: 'Çalışıyor' },
+  exited:  { led: 'led-crit', label: 'Durdu' },
+  paused:  { led: 'led-warn', label: 'Duraklatıldı' },
+  created: { led: 'led-off',  label: 'Oluşturuldu' },
 };
 
-export default function ContainerCard({ container }) {
+export default function ContainerCard({ container, groups = [], assignedGroupId = null, onAssign }) {
   const { mutate: action, isPending } = useContainerAction();
   const [showLogs, setShowLogs] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -37,20 +37,21 @@ export default function ContainerCard({ container }) {
   }
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden flex flex-col">
-      {/* Top accent line */}
-      <div className={`h-[2px] ${isRunning ? 'bg-panel-green' : 'bg-panel-red'} opacity-60`} />
-
-      <div className="p-4 flex flex-col gap-3 flex-1">
+    <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden flex flex-col">
+      <div className="p-3 flex flex-col gap-2 flex-1">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot} ${isRunning ? 'shadow-[0_0_6px_currentColor]' : ''}`} />
-            <span className="text-panel-text font-medium text-sm truncate">{container.name}</span>
+            <span className={`led ${cfg.led} shrink-0`} />
+            <span className="text-panel-text font-medium text-sm truncate font-mono">{container.name}</span>
+            {container.self && (
+              <span title="Panelin kendi container'ı: buradan durdurulamaz veya silinemez"
+                className="flex items-center gap-1 text-[11px] text-panel-muted shrink-0">
+                <ShieldCheck size={12} /> Panel
+              </span>
+            )}
           </div>
-          <span className={`text-[11px] px-2 py-0.5 rounded-full border shrink-0 font-mono ${cfg.badge}`}>
-            {cfg.label}
-          </span>
+          {!isRunning && <span className="text-xs shrink-0 text-panel-red">{cfg.label}</span>}
         </div>
 
         {/* Image */}
@@ -58,20 +59,20 @@ export default function ContainerCard({ container }) {
 
         {/* Stats row (only when running) */}
         {isRunning && (
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div className="bg-panel-bg rounded-lg px-2 py-1.5">
-              <div className="text-panel-muted text-[10px] mb-0.5">CPU</div>
-              <div className={`font-mono font-medium ${(container.cpu||0) > 50 ? 'text-panel-red' : (container.cpu||0) > 20 ? 'text-panel-yellow' : 'text-panel-green'}`}>
+          <div className="grid grid-cols-3 gap-1.5 text-xs">
+            <div className="bg-panel-bg rounded px-2 py-1">
+              <div className="text-panel-muted text-[11px] mb-0.5">CPU</div>
+              <div className={`font-medium tabular-nums ${(container.cpu||0) > 50 ? 'text-panel-red' : (container.cpu||0) > 20 ? 'text-panel-yellow' : 'text-panel-text'}`}>
                 {container.cpu?.toFixed(1) ?? '0.0'}%
               </div>
             </div>
-            <div className="bg-panel-bg rounded-lg px-2 py-1.5">
-              <div className="text-panel-muted text-[10px] mb-0.5">MEM</div>
-              <div className="font-mono font-medium text-panel-cyan">{formatBytes(container.memory?.used)}</div>
+            <div className="bg-panel-bg rounded px-2 py-1">
+              <div className="text-panel-muted text-[11px] mb-0.5">Bellek</div>
+              <div className="font-medium tabular-nums text-panel-text">{formatBytes(container.memory?.used)}</div>
             </div>
-            <div className="bg-panel-bg rounded-lg px-2 py-1.5">
-              <div className="text-panel-muted text-[10px] mb-0.5">PORTS</div>
-              <div className="font-mono font-medium text-panel-text truncate">
+            <div className="bg-panel-bg rounded px-2 py-1">
+              <div className="text-panel-muted text-[11px] mb-0.5">Portlar</div>
+              <div className="font-medium tabular-nums text-panel-text truncate">
                 {ports.length ? ports.map(p => p.PublicPort).join(', ') : '—'}
               </div>
             </div>
@@ -79,33 +80,48 @@ export default function ContainerCard({ container }) {
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-1 mt-auto pt-1 border-t border-panel-border/50">
-          {isRunning ? (
+        <div className="flex flex-wrap items-center gap-1 mt-auto pt-2 border-t border-panel-border/50">
+          {isRunning ? (!container.self && (
             <button onClick={() => handleAction('stop')} disabled={isPending}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-panel-muted hover:text-panel-red hover:bg-panel-red/10 rounded-lg transition-colors">
-              <Square size={11} /> Stop
+              className="flex items-center gap-1 px-2 py-1.5 text-xs whitespace-nowrap text-panel-muted hover:text-panel-red hover:bg-panel-red/10 rounded transition-colors">
+              <Square size={11} /> Durdur
             </button>
-          ) : (
+          )) : (
             <button onClick={() => handleAction('start')} disabled={isPending}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-panel-muted hover:text-panel-green hover:bg-panel-green/10 rounded-lg transition-colors">
-              <Play size={11} /> Start
+              className="flex items-center gap-1 px-2 py-1.5 text-xs whitespace-nowrap text-panel-muted hover:text-panel-green hover:bg-panel-green/10 rounded transition-colors">
+              <Play size={11} /> Başlat
             </button>
           )}
           <button onClick={() => handleAction('restart')} disabled={isPending}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-panel-muted hover:text-panel-yellow hover:bg-panel-yellow/10 rounded-lg transition-colors">
-            <RotateCcw size={11} /> Restart
+            className="flex items-center gap-1 px-2 py-1.5 text-xs whitespace-nowrap text-panel-muted hover:text-panel-yellow hover:bg-panel-yellow/10 rounded transition-colors">
+            <RotateCcw size={11} /> Yeniden başlat
           </button>
           <button onClick={() => setShowLogs(v => !v)}
-            className={`flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg transition-colors ${showLogs ? 'text-panel-cyan bg-panel-cyan/10' : 'text-panel-muted hover:text-panel-cyan hover:bg-panel-cyan/10'}`}>
-            <ScrollText size={11} /> Logs
+            className={`flex items-center gap-1 px-2 py-1.5 text-xs whitespace-nowrap rounded transition-colors ${showLogs ? 'text-panel-cyan bg-panel-cyan/10' : 'text-panel-muted hover:text-panel-cyan hover:bg-panel-cyan/10'}`}>
+            <ScrollText size={11} /> Loglar
           </button>
+          {onAssign && (
+            <select
+              value={assignedGroupId || ''}
+              onChange={e => onAssign(container.name, e.target.value || null)}
+              aria-label={`${container.name} grubunu değiştir`}
+              title="Grubu değiştir"
+              className="ml-auto max-w-[10rem] min-w-0 bg-panel-bg border border-panel-border rounded px-1.5 py-1 text-xs text-panel-muted hover:text-panel-text focus:outline-none focus:border-panel-accent"
+            >
+              <option value="">{container.project ? `Otomatik: ${container.project}` : 'Otomatik'}</option>
+              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          )}
+          {!container.self && (
           <button onClick={() => handleAction('remove')} disabled={isPending}
-            className={`ml-auto flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg transition-colors ${
+            title="Container'ı sil" aria-label="Container'ı sil"
+            className={`${onAssign ? '' : 'ml-auto'} flex items-center gap-1 px-2 py-1.5 text-xs whitespace-nowrap rounded transition-colors ${
               confirmRemove ? 'text-white bg-panel-red' : 'text-panel-muted hover:text-panel-red hover:bg-panel-red/10'
             }`}>
             <Trash2 size={11} />
-            {confirmRemove ? 'Confirm?' : ''}
+            {confirmRemove ? 'Silinsin mi?' : ''}
           </button>
+          )}
         </div>
       </div>
 

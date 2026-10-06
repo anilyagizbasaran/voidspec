@@ -1,6 +1,6 @@
 import React, { useId } from 'react';
 
-export function Sparkline({ data, color = '#3fb950', height = 40 }) {
+export function Sparkline({ data, color = '#3fcf6b', height = 40 }) {
   const uid = useId().replace(/:/g, '');
 
   if (!data || data.length < 2) {

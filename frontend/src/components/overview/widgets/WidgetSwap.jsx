@@ -14,7 +14,7 @@ const WidgetSwap = React.memo(function WidgetSwap() {
 
   if (swap && swap.total === 0) {
     return (
-      <div className="bg-panel-surface border border-panel-border rounded-xl p-4 h-full flex flex-col items-center justify-center gap-2">
+      <div className="bg-panel-surface border border-panel-border rounded-md p-4 h-full flex flex-col items-center justify-center gap-2">
         <Database size={20} className="text-panel-muted/40" />
         <span className="text-xs text-panel-muted">Swap devre dışı</span>
       </div>
@@ -28,9 +28,9 @@ const WidgetSwap = React.memo(function WidgetSwap() {
       percent={pct}
       primary={pct != null ? `${pct}%` : '—'}
       secondary={swap ? `${fmtBytes(swap.used)} / ${fmtBytes(swap.total)}` : ''}
-      accent="text-panel-yellow"
+      accent="text-panel-text"
       sparkData={history}
-      sparkColor="#d29922"
+      sparkColor="#d8cfbd"
       trend={trend}
     />
   );

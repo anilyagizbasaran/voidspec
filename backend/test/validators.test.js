@@ -60,3 +60,10 @@ test('buildJournalArgs satır sayısını sınırlar ve birim adını temizler',
   assert.equal(args[args.indexOf('-n') + 1], '2000');
   assert.equal(args[args.indexOf('-u') + 1], 'nginx.service');
 });
+
+test('sshKeysRaw: dosya yoksa boş, diğer hatalarda fırlatır', async () => {
+  const { sshKeysRaw } = await import('../src/users/routes.js');
+  assert.equal(sshKeysRaw({ ok: true, stdout: 'ssh-ed25519 AAA x', stderr: '' }), 'ssh-ed25519 AAA x');
+  assert.equal(sshKeysRaw({ ok: false, stdout: '', stderr: 'cat: /h/.ssh/authorized_keys: No such file or directory' }), '');
+  assert.throws(() => sshKeysRaw({ ok: false, stdout: '', stderr: 'Permission denied' }), /okunamadı/);
+});

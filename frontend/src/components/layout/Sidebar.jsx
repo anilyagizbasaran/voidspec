@@ -17,7 +17,7 @@ function FloatingLabel({ label, y }) {
         border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent
         border-r-[5px] border-r-panel-surface-2" />
       {/* Label */}
-      <div className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap
+      <div className="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap font-chrome
         bg-panel-surface-2 border border-panel-border text-panel-text shadow-lg
         animate-[fadeSlideIn_0.1s_ease-out]">
         {label}
@@ -63,10 +63,10 @@ export default function Sidebar() {
       {/* ── Desktop sidebar — always narrow ── */}
       <aside className="hidden md:flex flex-col w-14 shrink-0 bg-panel-surface border-r border-panel-border">
 
-        {/* Logo */}
+        {/* Logo — a rack-unit bracket, not a rounded app icon */}
         <div className="flex items-center justify-center h-12 border-b border-panel-border shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-panel-accent/15 flex items-center justify-center">
-            <Cpu size={14} className="text-panel-accent" />
+          <div className="w-7 h-7 rounded-md border border-panel-border-light bg-panel-surface-2 flex items-center justify-center">
+            <Cpu size={13} className="text-panel-accent" />
           </div>
         </div>
 
@@ -83,15 +83,15 @@ export default function Sidebar() {
                 title={label}
                 aria-label={label}
                 aria-current={active ? 'page' : undefined}
-                className={`relative flex items-center justify-center py-2.5 rounded-lg transition-all duration-150 w-full
+                className={`relative flex items-center justify-center py-2.5 rounded transition-colors duration-150 w-full
                   ${active
                     ? 'bg-panel-accent/10 text-panel-accent'
                     : 'text-panel-muted hover:text-panel-text hover:bg-panel-hover'
                   }`}
               >
-                {/* Active dot */}
+                {/* Active tick — a lit edge on the rail, not a badge */}
                 {active && (
-                  <span className="absolute top-1.5 right-1.5 w-1 h-1 rounded-full bg-panel-accent" />
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded-r bg-panel-accent" />
                 )}
                 <Icon size={16} className="shrink-0" />
               </button>
@@ -99,9 +99,9 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Bottom decoration */}
+        {/* Power LED */}
         <div className="flex items-center justify-center py-3 border-t border-panel-border shrink-0">
-          <div className="w-1.5 h-1.5 rounded-full bg-panel-green dot-green-glow" />
+          <span className="led led-ok" />
         </div>
       </aside>
 
@@ -121,11 +121,11 @@ export default function Sidebar() {
                 <button
                   key={id}
                   onClick={() => { go(id); setMoreOpen(false); }}
-                  className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg transition-colors
+                  className={`flex flex-col items-center justify-center gap-1 py-3 rounded transition-colors
                     ${activeTab === id ? 'text-panel-accent bg-panel-accent/10' : 'text-panel-muted hover:bg-panel-hover'}`}
                 >
                   <Icon size={18} />
-                  <span className="text-[9px] font-medium text-center leading-tight">{label}</span>
+                  <span className="text-[10px] font-medium text-center leading-tight">{label}</span>
                 </button>
               ))}
             </div>
@@ -144,7 +144,7 @@ export default function Sidebar() {
               ${activeTab === id ? 'text-panel-accent' : 'text-panel-muted'}`}
           >
             <Icon size={18} />
-            <span className="text-[9px] font-medium">{label}</span>
+            <span className="text-[10px] font-medium">{label}</span>
           </button>
         ))}
         <button
@@ -153,7 +153,7 @@ export default function Sidebar() {
             ${moreOpen || overflowActive ? 'text-panel-accent' : 'text-panel-muted'}`}
         >
           <MoreHorizontal size={18} />
-          <span className="text-[9px] font-medium">Daha fazla</span>
+          <span className="text-[10px] font-medium">Daha fazla</span>
         </button>
       </nav>
     </>

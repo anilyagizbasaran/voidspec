@@ -1,8 +1,26 @@
 import Docker from 'dockerode';
+import { hostname } from 'os';
+import { createGroupStore, GroupError } from './groups.js';
 
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 
-function formatContainer(c) {
+const groupStore = createGroupStore(
+  process.env.DOCKER_GROUPS_FILE || '/root/serverpanel/backend/logs/docker-groups.json',
+);
+
+const PROJECT_LABEL = 'com.docker.compose.project';
+
+// Panelin kendi compose projesi (backend + frontend). Container içinde
+// hostname = container ID'nin ilk 12 karakteri. Bu projedeki container'lar
+// panelden durdurulamaz/silinemez: durdurulurlarsa paneli geri açacak kimse
+// kalmıyor (2026-09-29 kesintisi).
+export function selfProjectOf(containers, host = hostname()) {
+  const me = containers.find(c => c.Id.startsWith(host));
+  return me?.Labels?.[PROJECT_LABEL] || null;
+}
+
+function formatContainer(c, selfProject) {
+  const project = c.Labels?.[PROJECT_LABEL] || null;
   return {
     id: c.Id,
     shortId: c.Id.substring(0, 12),
@@ -12,7 +30,23 @@ function formatContainer(c) {
     state: c.State,
     created: c.Created,
     ports: c.Ports || [],
+    project,
+    service: c.Labels?.['com.docker.compose.service'] || null,
+    self: selfProject != null && project === selfProject,
   };
+}
+
+async function assertNotSelf(id) {
+  const containers = await docker.listContainers({ all: true });
+  const selfProject = selfProjectOf(containers);
+  const target = containers.find(c => c.Id === id || c.Id.startsWith(id));
+  if (selfProject && target?.Labels?.[PROJECT_LABEL] === selfProject) {
+    throw new GroupError(409, 'Panelin kendi container\'ı panelden durdurulamaz veya silinemez');
+  }
+}
+
+function sendError(reply, err) {
+  reply.code(err.status || 500).send({ error: err.message });
 }
 
 function formatImage(img) {
@@ -83,6 +117,8 @@ function scheduleStatsRefresh(containers) {
 }
 
 export async function dockerRoutes(fastify) {
+  await groupStore.load();
+
   fastify.get('/api/docker/containers', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     try {
       const containers = await docker.listContainers({ all: true });
@@ -92,8 +128,9 @@ export async function dockerRoutes(fastify) {
       // veriyi anında dönüp yenilemeyi arka planda bırakıyoruz.
       if (refresh && statsCache.size === 0) await refresh;
 
+      const selfProject = selfProjectOf(containers);
       reply.send(containers.map(c => ({
-        ...formatContainer(c),
+        ...formatContainer(c, selfProject),
         ...(statsCache.get(c.Id) || EMPTY_STATS),
       })));
     } catch (err) {
@@ -112,10 +149,11 @@ export async function dockerRoutes(fastify) {
 
   fastify.post('/api/docker/containers/:id/stop', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     try {
+      await assertNotSelf(req.params.id);
       await docker.getContainer(req.params.id).stop();
       reply.send({ ok: true });
     } catch (err) {
-      reply.code(500).send({ error: err.message });
+      sendError(reply, err);
     }
   });
 
@@ -130,11 +168,12 @@ export async function dockerRoutes(fastify) {
 
   fastify.delete('/api/docker/containers/:id', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     try {
+      await assertNotSelf(req.params.id);
       await docker.getContainer(req.params.id).remove({ force: true });
       statsCache.delete(req.params.id);
       reply.send({ ok: true });
     } catch (err) {
-      reply.code(500).send({ error: err.message });
+      sendError(reply, err);
     }
   });
 
@@ -179,6 +218,45 @@ export async function dockerRoutes(fastify) {
       reply.send({ ok: true });
     } catch (err) {
       reply.code(500).send({ error: err.message });
+    }
+  });
+
+  // ── Container grupları ────────────────────────────────────────────────────
+  const auth = { onRequest: [fastify.authenticate] };
+
+  fastify.get('/api/docker/groups', auth, async () => groupStore.get());
+
+  fastify.post('/api/docker/groups', auth, async (req, reply) => {
+    try {
+      reply.code(201).send(await groupStore.create(req.body?.name));
+    } catch (err) {
+      sendError(reply, err);
+    }
+  });
+
+  fastify.patch('/api/docker/groups/:id', auth, async (req, reply) => {
+    try {
+      reply.send(await groupStore.rename(req.params.id, req.body?.name));
+    } catch (err) {
+      sendError(reply, err);
+    }
+  });
+
+  fastify.delete('/api/docker/groups/:id', auth, async (req, reply) => {
+    try {
+      await groupStore.remove(req.params.id);
+      reply.send({ ok: true });
+    } catch (err) {
+      sendError(reply, err);
+    }
+  });
+
+  fastify.put('/api/docker/groups/assign', auth, async (req, reply) => {
+    try {
+      await groupStore.assign(req.body?.container, req.body?.groupId ?? null);
+      reply.send({ ok: true });
+    } catch (err) {
+      sendError(reply, err);
     }
   });
 }

@@ -180,7 +180,7 @@ function ContextMenu({ x, y, menuItems, onClose }) {
   const menuStyle = { position: 'fixed', left: Math.min(x, window.innerWidth - 192), top: Math.min(y, window.innerHeight - 40 * menuItems.length), zIndex: 9999 };
 
   return (
-    <div ref={ref} style={menuStyle} className="bg-panel-surface border border-panel-border rounded shadow-xl py-1 min-w-48 text-xs select-none">
+    <div ref={ref} style={menuStyle} className="bg-panel-surface border border-panel-border rounded-md shadow-xl py-1 min-w-48 text-xs select-none">
       {menuItems.map((item, i) =>
         item === '---' ? (
           <div key={i} className="border-t border-panel-border/50 my-1" />
@@ -200,6 +200,8 @@ function ContextMenu({ x, y, menuItems, onClose }) {
     </div>
   );
 }
+
+const DU_CONCURRENCY = 3;
 
 export default function FileExplorer() {
   // Navigation history
@@ -221,6 +223,10 @@ export default function FileExplorer() {
   const [newFolder, setNewFolder] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  // Toplu/klavye ile silme onayı bekleyen yollar. Delete tuşu eskiden seçili
+  // her şeyi (alt dizinleriyle) anında siliyordu — Ctrl+A, Delete ile bir
+  // dizinin tamamı tek tuşta gidiyordu.
+  const [pendingDelete, setPendingDelete] = useState(null);
   const [renaming, setRenaming] = useState(null);
   const [renameValue, setRenameValue] = useState('');
   const [showUrlFetch, setShowUrlFetch] = useState(false);
@@ -361,6 +367,16 @@ export default function FileExplorer() {
     setClipboard({ paths: items.map(i => i.path), mode: 'cut' });
   }
 
+  function requestDelete(items) {
+    if (items.length) setPendingDelete(items.map(i => i.path));
+  }
+
+  function confirmPendingDelete() {
+    pendingDelete?.forEach(p => deleteMutation.mutate(p));
+    setPendingDelete(null);
+    setSelected(new Set());
+  }
+
   async function doPaste(targetDir) {
     if (!clipboard) return;
     const { paths, mode } = clipboard;
@@ -424,7 +440,7 @@ export default function FileExplorer() {
       items.push({
         label: isMulti ? `Sil (${selItems.length})` : 'Sil',
         icon: <Trash2 size={12} />,
-        action: () => { selItems.forEach(i => deleteMutation.mutate(i.path)); setSelected(new Set()); },
+        action: () => requestDelete(selItems),
         shortcut: 'Del',
       });
     }
@@ -445,10 +461,18 @@ export default function FileExplorer() {
   // --- Keyboard shortcuts (using ref to avoid stale closures) ---
   const stateRef = useRef({});
   stateRef.current = { selected, clipboard, path, data, renaming };
+  // Fonksiyonlar da her render'da yeniden oluşuyor ve içlerinde o render'ın
+  // state'ini (clipboard, path, navIdx) kapatıyor. Dinleyici [] ile bir kez
+  // kurulduğu için doğrudan çağrılınca ilk render'ın kopyaları çalışıyordu:
+  // Ctrl+V hiçbir şey yapmıyor (clipboard hep null), Backspace hep ilk
+  // açılan dizinin üstüne gidiyordu.
+  const actionsRef = useRef({});
+  actionsRef.current = { doPaste, goUp, navigate, openFile, startRename, requestDelete };
 
   useEffect(() => {
     function onKey(e) {
       const { selected, clipboard, path, data, renaming } = stateRef.current;
+      const { doPaste, goUp, navigate, openFile, startRename, requestDelete } = actionsRef.current;
       if (renaming) return;
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
@@ -461,9 +485,9 @@ export default function FileExplorer() {
         if (e.key === 'v') { e.preventDefault(); if (clipboard) doPaste(path); return; }
       }
       if (e.key === 'F2') { e.preventDefault(); if (selItems.length === 1) startRename(selItems[0]); return; }
-      if (e.key === 'Delete') { e.preventDefault(); selItems.forEach(i => deleteMutation.mutate(i.path)); setSelected(new Set()); return; }
+      if (e.key === 'Delete') { e.preventDefault(); requestDelete(selItems); return; }
       if (e.key === 'Backspace') { e.preventDefault(); goUp(); return; }
-      if (e.key === 'Escape') { setSelected(new Set()); setContextMenu(null); return; }
+      if (e.key === 'Escape') { setSelected(new Set()); setContextMenu(null); setPendingDelete(null); return; }
       if (e.key === 'Enter' && selItems.length === 1) {
         e.preventDefault();
         if (selItems[0].type === 'dir') navigate(selItems[0].path);
@@ -478,17 +502,30 @@ export default function FileExplorer() {
     setLoadingDu(s => ({ ...s, [dirPath]: true }));
     try {
       const res = await client.get('/files/du', { params: { path: dirPath } });
+      // size null: sanal dosya sistemi, hesaplanmadı — "—" gösterilir.
       setDirSizes(s => ({ ...s, [dirPath]: res.data.size }));
     } catch {
-      setDirSizes(s => ({ ...s, [dirPath]: 0 }));
+      // Zaman aşımı/hata: boyut bilinmiyor. Eskiden 0 yazılıyordu ve dev bir
+      // /var "0 B" görünüyordu.
+      setDirSizes(s => ({ ...s, [dirPath]: null }));
     } finally {
       setLoadingDu(s => ({ ...s, [dirPath]: false }));
     }
   }
 
+  // Her alt dizin için aynı anda `du` başlatmak (/ altında ~20 tam disk
+  // taraması) sunucuyu diske gömüyordu. En fazla DU_CONCURRENCY paralel.
   useEffect(() => {
     if (!data?.items) return;
-    data.items.filter(i => i.type === 'dir').forEach(i => calcDirSize(i.path));
+    const queue = data.items
+      .filter(i => i.type === 'dir' && !/^\/(proc|sys|dev)(\/|$)/.test(i.path))
+      .map(i => i.path);
+    let cancelled = false;
+    const worker = async () => {
+      while (!cancelled && queue.length) await calcDirSize(queue.shift());
+    };
+    for (let i = 0; i < DU_CONCURRENCY; i++) worker();
+    return () => { cancelled = true; };
   }, [data]);
 
   async function openFile(filePath) {
@@ -717,6 +754,19 @@ export default function FileExplorer() {
           <input ref={uploadRef} type="file" multiple className="hidden" onChange={handleUpload} />
         </div>
 
+        {pendingDelete && (
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-panel-red/40 bg-panel-red/10 text-xs">
+            <Trash2 size={12} className="text-panel-red shrink-0" />
+            <span className="text-panel-text min-w-0 truncate">
+              {pendingDelete.length === 1
+                ? <><span className="font-mono">{pendingDelete[0]}</span> kalıcı olarak silinecek (alt dizinleriyle birlikte).</>
+                : <>{pendingDelete.length} öğe kalıcı olarak silinecek (alt dizinleriyle birlikte).</>}
+            </span>
+            <button onClick={confirmPendingDelete} className="ml-auto px-2 py-0.5 rounded bg-panel-red text-white hover:opacity-90">Sil</button>
+            <button onClick={() => setPendingDelete(null)} className="px-2 py-0.5 text-panel-muted hover:text-panel-text">Vazgeç</button>
+          </div>
+        )}
+
         {showNewFolder && (
           <div className="flex items-center gap-2 px-3 py-2 border-b border-panel-border bg-panel-hover">
             <input autoFocus value={newFolder} onChange={e => setNewFolder(e.target.value)}
@@ -895,7 +945,7 @@ export default function FileExplorer() {
               {clipboard && (
                 <button onClick={() => doPaste(path)} className="flex items-center gap-1 hover:text-panel-text" title="Ctrl+V"><Clipboard size={11} /> Yapıştır</button>
               )}
-              <button onClick={() => { getSelectedItems().forEach(i => deleteMutation.mutate(i.path)); setSelected(new Set()); }} className="flex items-center gap-1 hover:text-panel-red ml-auto" title="Del"><Trash2 size={11} /> Sil</button>
+              <button onClick={() => requestDelete(getSelectedItems())} className="flex items-center gap-1 hover:text-panel-red ml-auto" title="Del"><Trash2 size={11} /> Sil</button>
             </>
           ) : clipboard ? (
             <span className="flex items-center gap-1.5">

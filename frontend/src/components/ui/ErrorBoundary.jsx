@@ -28,7 +28,7 @@ export default class ErrorBoundary extends React.Component {
 
     return (
       <div className="h-full flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-panel-surface border border-panel-red/30 rounded-xl p-5 flex flex-col gap-3">
+        <div className="max-w-md w-full bg-panel-surface border border-panel-red/30 rounded-md p-5 flex flex-col gap-3">
           <div className="flex items-center gap-2 text-panel-red">
             <AlertTriangle size={16} />
             <h2 className="text-sm font-semibold">Bu panel yüklenemedi</h2>
@@ -38,7 +38,7 @@ export default class ErrorBoundary extends React.Component {
           </p>
           <button
             onClick={() => this.setState({ error: null })}
-            className="self-start flex items-center gap-1.5 text-xs bg-panel-accent/15 text-panel-accent px-3 py-1.5 rounded-lg hover:bg-panel-accent/25"
+            className="self-start flex items-center gap-1.5 text-xs bg-panel-accent/15 text-panel-accent px-3 py-1.5 rounded hover:bg-panel-accent/25"
           >
             <RotateCcw size={12} /> Tekrar dene
           </button>

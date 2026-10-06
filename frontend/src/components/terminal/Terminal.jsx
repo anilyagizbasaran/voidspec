@@ -20,7 +20,7 @@ const TerminalPane = forwardRef(function TerminalPane({ tabId }, ref) {
     <div
       ref={containerRef}
       className="flex-1 min-h-0"
-      style={{ background: '#0d1117' }}
+      style={{ background: '#1b2229' }}
     />
   );
 });

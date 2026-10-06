@@ -12,7 +12,7 @@ import {
 function OutputModal({ title, output, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-2xl h-[70vh] flex flex-col">
+      <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-2xl h-[70vh] flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-panel-border shrink-0">
           <Terminal size={13} className="text-panel-muted" />
           <span className="text-panel-text text-sm font-mono">{title}</span>
@@ -31,7 +31,7 @@ function InfoModal({ name, onClose }) {
   const { data, isLoading } = usePackageInfo(name, true);
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-xl h-[70vh] flex flex-col">
+      <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-xl h-[70vh] flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-panel-border shrink-0">
           <Info size={13} className="text-panel-muted" />
           <span className="text-panel-text text-sm font-mono">{name}</span>
@@ -54,7 +54,7 @@ function InstallModal({ onClose, onInstall, loading }) {
   const [name, setName] = useState('');
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-sm p-5 flex flex-col gap-4">
+      <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-sm p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <Download size={14} className="text-panel-muted" />
           <h3 className="text-panel-text text-sm font-medium">Install Package</h3>
@@ -84,7 +84,7 @@ function RemoveConfirm({ pkg, onClose, onRemove, loading }) {
   const [purge, setPurge] = useState(false);
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-sm p-5 flex flex-col gap-4">
+      <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-sm p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <AlertTriangle size={14} className="text-panel-yellow" />
           <h3 className="text-panel-text text-sm font-medium">Remove <span className="font-mono">{pkg.name}</span>?</h3>
@@ -112,7 +112,7 @@ function RemoveConfirm({ pkg, onClose, onRemove, loading }) {
 function UpgradeAllConfirm({ count, onClose, onConfirm, loading }) {
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-sm p-5 flex flex-col gap-4">
+      <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-sm p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <ArrowUpCircle size={14} className="text-panel-cyan" />
           <h3 className="text-panel-text text-sm font-medium">Upgrade All Packages?</h3>
@@ -261,7 +261,7 @@ export default function PackagePanel() {
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-panel-muted" />
             <input value={search} onChange={e => handleSearch(e.target.value)}
               placeholder="Search packages…"
-              className="bg-panel-surface border border-panel-border rounded pl-7 pr-7 py-1 text-xs text-panel-text placeholder-panel-muted focus:outline-none focus:border-panel-accent w-48 font-mono" />
+              className="bg-panel-surface border border-panel-border rounded-md pl-7 pr-7 py-1 text-xs text-panel-text placeholder-panel-muted focus:outline-none focus:border-panel-accent w-48 font-mono" />
             {search && (
               <button onClick={() => handleSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-panel-muted hover:text-panel-text">
                 <X size={11} />
@@ -273,7 +273,7 @@ export default function PackagePanel() {
 
       {/* ── Upgradable tab ── */}
       {tab === 'upgradable' && (
-        <div className="bg-panel-surface border border-panel-border rounded-xl overflow-x-auto">
+        <div className="bg-panel-surface border border-panel-border rounded-md overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="text-panel-muted border-b border-panel-border">
               <tr>
@@ -320,7 +320,7 @@ export default function PackagePanel() {
       {/* ── Installed tab ── */}
       {tab === 'installed' && (
         <>
-          <div className="bg-panel-surface border border-panel-border rounded-xl overflow-x-auto">
+          <div className="bg-panel-surface border border-panel-border rounded-md overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="text-panel-muted border-b border-panel-border">
                 <tr>
@@ -388,7 +388,7 @@ export default function PackagePanel() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-20 md:bottom-4 right-4 px-4 py-2.5 rounded-lg border text-xs font-mono z-50 shadow-lg ${
+        <div className={`fixed bottom-20 md:bottom-4 right-4 px-4 py-2.5 rounded border text-xs font-mono z-50 shadow-lg ${
           toast.ok ? 'bg-panel-green/10 border-panel-green text-panel-green'
                    : 'bg-panel-red/10 border-panel-red text-panel-red'
         }`}>{toast.msg}</div>

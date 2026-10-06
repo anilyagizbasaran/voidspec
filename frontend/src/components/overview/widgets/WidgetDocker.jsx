@@ -19,8 +19,8 @@ const WidgetDocker = React.memo(function WidgetDocker() {
     <StatusCard
       icon={Container}
       label="Docker"
-      value={dock != null ? `${running} / ${total} running` : '—'}
-      sub={dock != null ? `${total - running} stopped` : null}
+      value={dock != null ? `${running}/${total} çalışıyor` : '—'}
+      sub={dock != null ? `${total - running} durdu` : null}
       status={running > 0 ? 'ok' : running === 0 && total > 0 ? 'warn' : 'off'}
       onClick={() => setActiveTab('docker')}
     />

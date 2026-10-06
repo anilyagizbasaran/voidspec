@@ -31,12 +31,12 @@ const WidgetDiskIO = React.memo(function WidgetDiskIO() {
   const latest = history.at(-1);
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden h-full flex flex-col">
+    <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <HardDrive size={13} className="text-panel-muted" />
-          <span className="text-xs text-panel-muted tracking-wide">
-            {bp.compact ? 'Disk I/O' : 'Disk I/O Geçmişi'}
+          <span className="text-[13px] font-medium text-panel-muted">
+            {bp.compact ? 'Disk I/O' : 'Disk G/Ç geçmişi'}
           </span>
         </div>
         {latest && (
@@ -51,28 +51,28 @@ const WidgetDiskIO = React.memo(function WidgetDiskIO() {
           <AreaChart data={history} margin={{ top: 4, right: 4, bottom: 0, left: bp.compact ? -30 : -10 }}>
             <defs>
               <linearGradient id="gdread" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#3fb950" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#3fb950" stopOpacity={0} />
+                <stop offset="5%"  stopColor="#3fcf6b" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#3fcf6b" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gdwrite" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#d29922" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#d29922" stopOpacity={0} />
+                <stop offset="5%"  stopColor="#eea53b" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#eea53b" stopOpacity={0} />
               </linearGradient>
             </defs>
             {!bp.compact && (
-              <XAxis dataKey="t" tick={{ fill: '#7d8590', fontSize: 9 }} tickLine={false} axisLine={false} interval={14} />
+              <XAxis dataKey="t" tick={{ fill: '#95a0aa', fontSize: 9 }} tickLine={false} axisLine={false} interval={14} />
             )}
-            <YAxis tick={{ fill: '#7d8590', fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}k`} />
+            <YAxis tick={{ fill: '#95a0aa', fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}k`} />
             <Tooltip
-              contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 6, fontSize: 11, padding: '4px 8px' }}
-              labelStyle={{ color: '#7d8590', marginBottom: 2 }}
+              contentStyle={{ background: '#222a32', border: '1px solid #36414c', borderRadius: 6, fontSize: 11, padding: '4px 8px' }}
+              labelStyle={{ color: '#95a0aa', marginBottom: 2 }}
               formatter={(val, key, props) => {
                 const raw = key === 'read' ? props.payload.readRaw : props.payload.writeRaw;
                 return [`${fmtBytes(raw)}/s`, key === 'read' ? '↓ Okuma' : '↑ Yazma'];
               }}
             />
-            <Area type="monotone" dataKey="read"  stroke="#3fb950" strokeWidth={1.5} fill="url(#gdread)"  dot={false} />
-            <Area type="monotone" dataKey="write" stroke="#d29922" strokeWidth={1.5} fill="url(#gdwrite)" dot={false} />
+            <Area type="monotone" dataKey="read"  stroke="#3fcf6b" strokeWidth={1.5} fill="url(#gdread)"  dot={false} />
+            <Area type="monotone" dataKey="write" stroke="#eea53b" strokeWidth={1.5} fill="url(#gdwrite)" dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       </div>

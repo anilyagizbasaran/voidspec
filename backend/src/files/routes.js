@@ -6,17 +6,31 @@ import { spawn } from 'child_process';
 import { get as httpGet } from 'http';
 import { get as httpsGet } from 'https';
 import { resolveSafePath, assertMutable, assertInside, PathError } from '../lib/paths.js';
-import { toFs, hostFsEnabled } from '../lib/hostfs.js';
+import { toFs, hostFsEnabled, resolveHostPath } from '../lib/hostfs.js';
 
 function sendPathError(reply, err) {
   return reply.code(err?.statusCode || 400).send({ error: err?.message || 'Invalid path' });
+}
+
+// Kullanıcı yolunu doğrular ve host'taki symlink'leri host kökü içinde çözer
+// (bkz. resolveHostPath). mutable: yıkıcı işlem — hem verilen yol hem de
+// symlink'in işaret ettiği gerçek yol korumalı listeye karşı denetlenir.
+async function hostPath(input, { followLast = true, mutable = false } = {}) {
+  const logical = resolveSafePath(input);
+  if (mutable) assertMutable(logical);
+  const real = await resolveHostPath(logical, { followLast });
+  if (mutable) assertMutable(real);
+  return real;
 }
 
 // `du -sb` yardımcısı: timeout'ta süreci gerçekten öldürür ve yanlış "0"
 // sonucu döndürmek yerine null döner.
 function duSize(target, timeoutMs = 15000) {
   return new Promise((resolve) => {
-    const proc = spawn('du', ['-sb', '--', toFs(target)]);
+    // -x: başka dosya sistemlerine inme. Host kökü /host'a bağlı olduğundan
+    // aksi halde /proc, /sys ve Docker'ın overlay bağlamaları (aynı veriyi
+    // ikinci kez) taranıyordu.
+    const proc = spawn('du', ['-sbx', '--', toFs(target)]);
     let out = '';
     let done = false;
     const finish = (value) => {
@@ -37,6 +51,12 @@ function duSize(target, timeoutMs = 15000) {
   });
 }
 
+// Çekirdeğin sanal dosya sistemleri: boyutları anlamsız, taramaları pahalı.
+const VIRTUAL_FS = ['/proc', '/sys', '/dev'];
+export function isVirtualFsPath(p) {
+  return VIRTUAL_FS.some(v => p === v || p.startsWith(v + '/'));
+}
+
 // smart-overview tüm diski tarıyor (dakikalar sürebilir). Sonucu cache'liyoruz;
 // ?refresh=1 ile zorla yenilenebilir.
 const OVERVIEW_TTL_MS = 10 * 60 * 1000;
@@ -45,21 +65,32 @@ let overviewCache = { at: 0, data: null, inFlight: null };
 export async function fileRoutes(fastify) {
   // List directory
   fastify.get('/api/files', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    let dirPath;
-    try { dirPath = resolveSafePath(req.query.path || '/'); }
-    catch (err) { return sendPathError(reply, err); }
+    // Gösterilen yol kullanıcının girdiği (mantıksal) yol kalır; okunan dizin
+    // symlink'leri çözülmüş gerçek yol.
+    let dirPath, realDir;
+    try {
+      dirPath = resolveSafePath(req.query.path || '/');
+      realDir = await resolveHostPath(dirPath);
+    } catch (err) { return sendPathError(reply, err); }
 
     try {
-      const entries = await fs.readdir(toFs(dirPath), { withFileTypes: true });
+      const entries = await fs.readdir(toFs(realDir), { withFileTypes: true });
       const items = await Promise.all(
         entries.map(async entry => {
           const fullPath = path.join(dirPath, entry.name);
           try {
-            const stat = await fs.lstat(toFs(fullPath));
+            const stat = await fs.lstat(toFs(path.join(realDir, entry.name)));
+            // Dizine işaret eden symlink'ler (sites-enabled, /bin → usr/bin)
+            // açılabilir olsun diye hedefin türüne bakıyoruz.
+            let isDir = entry.isDirectory();
+            if (stat.isSymbolicLink()) {
+              const target = await resolveHostPath(path.join(realDir, entry.name)).catch(() => null);
+              isDir = target ? (await fs.stat(toFs(target)).catch(() => null))?.isDirectory() ?? false : false;
+            }
             return {
               name: entry.name,
               path: fullPath,
-              type: entry.isDirectory() ? 'dir' : 'file',
+              type: isDir ? 'dir' : 'file',
               size: stat.size,
               modified: stat.mtime,
               permissions: stat.mode.toString(8),
@@ -94,18 +125,20 @@ export async function fileRoutes(fastify) {
 
   // File content
   fastify.get('/api/files/content', { onRequest: [fastify.authenticate] }, async (req, reply) => {
-    let filePath;
-    try { filePath = resolveSafePath(req.query.path); }
-    catch (err) { return sendPathError(reply, err); }
+    let filePath, realPath;
+    try {
+      filePath = resolveSafePath(req.query.path);
+      realPath = await resolveHostPath(filePath);
+    } catch (err) { return sendPathError(reply, err); }
 
     try {
-      const stat = await fs.stat(toFs(filePath));
+      const stat = await fs.stat(toFs(realPath));
       if (!stat.isFile()) return reply.code(400).send({ error: 'Not a regular file' });
       if (stat.size > 5 * 1024 * 1024) {
         return reply.code(400).send({ error: 'File too large (max 5MB)' });
       }
-      const content = await fs.readFile(toFs(filePath), 'utf8');
-      reply.send({ path: filePath, content });
+      const content = await fs.readFile(toFs(realPath), 'utf8');
+      reply.send({ path: filePath, realPath, content });
     } catch (err) {
       reply.code(400).send({ error: err.message });
     }
@@ -125,8 +158,11 @@ export async function fileRoutes(fastify) {
       return reply.code(413).send({ error: 'Content too large (max 5MB)' });
     }
 
+    // Symlink'in hedefine yazıyoruz: rename ile bağlantının kendisini ezmek
+    // (sites-enabled/x) gerçek yapılandırmayı değiştirmeden bağlantıyı
+    // koparıyordu.
     let filePath;
-    try { filePath = assertMutable(resolveSafePath(rawPath)); }
+    try { filePath = await hostPath(rawPath, { mutable: true }); }
     catch (err) { return sendPathError(reply, err); }
 
     const fsPath = toFs(filePath);
@@ -178,11 +214,12 @@ export async function fileRoutes(fastify) {
   // Download file
   fastify.get('/api/files/download', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     let filePath;
-    try { filePath = resolveSafePath(req.query.path); }
+    try { filePath = await hostPath(req.query.path); }
     catch (err) { return sendPathError(reply, err); }
 
     try {
-      await fs.access(toFs(filePath));
+      const stat = await fs.stat(toFs(filePath));
+      if (!stat.isFile()) return reply.code(400).send({ error: 'Not a regular file' });
       // Dosya adındaki tırnak/CR-LF header'ı bozabilir; temizliyoruz.
       const filename = path.basename(filePath).replace(/["\r\n]/g, '_');
       reply.header('Content-Disposition', `attachment; filename="${filename}"`);
@@ -195,7 +232,7 @@ export async function fileRoutes(fastify) {
   // Download as tar.gz (file or directory)
   fastify.get('/api/files/download-tar', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     let targetPath;
-    try { targetPath = resolveSafePath(req.query.path); }
+    try { targetPath = await hostPath(req.query.path); }
     catch (err) { return sendPathError(reply, err); }
 
     try {
@@ -223,7 +260,7 @@ export async function fileRoutes(fastify) {
     // gelirse dosyalar sessizce /tmp'ye düşüyordu).
     let targetDir = null;
     if (req.query.path) {
-      try { targetDir = assertMutable(resolveSafePath(req.query.path)); }
+      try { targetDir = await hostPath(req.query.path, { mutable: true }); }
       catch (err) { return sendPathError(reply, err); }
     }
 
@@ -232,7 +269,7 @@ export async function fileRoutes(fastify) {
     try {
       for await (const part of req.parts()) {
         if (part.type === 'field' && part.fieldname === 'path') {
-          if (!targetDir) targetDir = assertMutable(resolveSafePath(part.value));
+          if (!targetDir) targetDir = await hostPath(part.value, { mutable: true });
         } else if (part.type === 'file') {
           if (!targetDir) {
             // Dosyayı tüketmezsek istek asılı kalır.
@@ -325,8 +362,8 @@ export async function fileRoutes(fastify) {
   fastify.post('/api/files/copy', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     let from, to;
     try {
-      from = resolveSafePath(req.body?.from);
-      to = assertMutable(resolveSafePath(req.body?.to));
+      from = await hostPath(req.body?.from);
+      to = await hostPath(req.body?.to, { followLast: false, mutable: true });
     } catch (err) { return sendPathError(reply, err); }
 
     try {
@@ -341,8 +378,8 @@ export async function fileRoutes(fastify) {
   fastify.post('/api/files/rename', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     let from, to;
     try {
-      from = assertMutable(resolveSafePath(req.body?.from));
-      to = assertMutable(resolveSafePath(req.body?.to));
+      from = await hostPath(req.body?.from, { followLast: false, mutable: true });
+      to = await hostPath(req.body?.to, { followLast: false, mutable: true });
     } catch (err) { return sendPathError(reply, err); }
 
     try {
@@ -370,7 +407,7 @@ export async function fileRoutes(fastify) {
 
     let destPath;
     try {
-      const safeDest = assertMutable(resolveSafePath(destDir));
+      const safeDest = await hostPath(destDir, { mutable: true });
       const rawName = filename || decodeURIComponent(parsed.pathname.split('/').pop() || '') || 'download';
       const safeName = path.basename(rawName).replace(/^\.+/, '') || 'download';
       destPath = assertInside(safeDest, path.join(safeDest, safeName));
@@ -412,7 +449,7 @@ export async function fileRoutes(fastify) {
     // Eskiden path parametresi boş gelirse safePath() '/' dönüyor ve tüm
     // dosya sistemi siliniyordu. Artık boş path hata, kritik yollar korumalı.
     let filePath;
-    try { filePath = assertMutable(resolveSafePath(req.query.path)); }
+    try { filePath = await hostPath(req.query.path, { followLast: false, mutable: true }); }
     catch (err) { return sendPathError(reply, err); }
 
     try {
@@ -426,8 +463,12 @@ export async function fileRoutes(fastify) {
   // Directory size (du -sb)
   fastify.get('/api/files/du', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     let targetPath;
-    try { targetPath = resolveSafePath(req.query.path); }
+    try { targetPath = await hostPath(req.query.path); }
     catch (err) { return sendPathError(reply, err); }
+
+    if (isVirtualFsPath(targetPath)) {
+      return reply.send({ path: targetPath, size: null, skipped: 'virtual filesystem' });
+    }
 
     try {
       await fs.access(toFs(targetPath));
@@ -442,7 +483,7 @@ export async function fileRoutes(fastify) {
   // Mkdir
   fastify.post('/api/files/mkdir', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     let dirPath;
-    try { dirPath = resolveSafePath(req.body?.path); }
+    try { dirPath = await hostPath(req.body?.path); }
     catch (err) { return sendPathError(reply, err); }
 
     try {

@@ -10,9 +10,9 @@ const WidgetProcesses = React.memo(function WidgetProcesses() {
   return (
     <StatusCard
       icon={Cpu}
-      label="Processes"
-      value={procs ? `${procs.total} total` : '—'}
-      sub={procs ? `${procs.running} running · ${procs.sleeping} sleeping` : null}
+      label="Süreçler"
+      value={procs ? `${procs.total} süreç` : '—'}
+      sub={procs ? `${procs.running} çalışıyor, ${procs.sleeping} bekliyor` : null}
       status="ok"
       onClick={() => setActiveTab('processes')}
     />

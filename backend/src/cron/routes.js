@@ -114,9 +114,20 @@ async function writeRootCrontab(lines) {
   await hostInput(['crontab', '-'], lines.join('\n').replace(/\n+$/, '') + '\n');
 }
 
+// "no crontab for root" gerçekten boş demek; başka her hata (zaman aşımı,
+// nsenter hatası) okunamadı demek. Eskiden ikisi ayırt edilmiyordu: okuma bir
+// an başarısız olursa yeni iş eklenirken crontab tek satırla yeniden yazılıyor
+// ve mevcut tüm işler siliniyordu.
+export function crontabLinesFromResult({ ok, stdout, stderr }) {
+  if (ok) return stdout.split('\n');
+  if (/no crontab for/i.test(stderr)) return [];
+  const err = new Error(`crontab okunamadı: ${stderr || 'bilinmeyen hata'}`);
+  err.statusCode = 503;
+  throw err;
+}
+
 async function getRootCrontabLines() {
-  const { stdout } = await host(['crontab', '-l']);
-  return stdout.split('\n');
+  return crontabLinesFromResult(await host(['crontab', '-l']));
 }
 
 // Listeleme ile düzenleme arasında crontab değişmişse yanlış satırı

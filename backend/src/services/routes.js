@@ -116,13 +116,24 @@ export async function serviceRoutes(fastify) {
       return reply.code(400).send({ error: 'Invalid action', allowed: [...ALLOWED_ACTIONS] });
     }
 
-    const { stdout, stderr } = await nsctl('systemctl', action, name);
+    const { stdout, stderr, ok } = await nsctl('systemctl', action, name);
     invalidateList();
+
+    // host() hata fırlatmıyor; eskiden başarısız bir restart da arayüze
+    // `ok: true` olarak gidiyordu.
+    if (!ok) {
+      fastify.log.warn({ name, action, stderr }, 'Service action failed');
+      return reply.code(500).send({
+        error: stderr || `systemctl ${action} ${name} başarısız oldu`,
+        name,
+        action,
+      });
+    }
     fastify.log.info({ name, action }, 'Service action');
 
     // For enable/disable, reload the daemon
     if (action === 'enable' || action === 'disable') {
-      await nsctl('systemctl', 'daemon-reload').catch(() => {});
+      await nsctl('systemctl', 'daemon-reload');
     }
 
     reply.send({ ok: true, name, action, output: stdout || stderr || '' });

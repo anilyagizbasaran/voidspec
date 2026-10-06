@@ -8,10 +8,26 @@
 
 body {
   margin: 0;
-  background-color: #0d1117;
-  color: #e6edf3;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  background-color: #1b2229;
+  color: #e4e8eb;
+  /* Arayüz Plex Sans Condensed; mono yalnızca gerçek veri için (terminal, log, yol). */
+  font-family: 'IBM Plex Sans Condensed', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
   overflow: hidden;
+}
+
+/* ── Klavye odağı — her etkileşimli öğede görünür ── */
+:focus-visible {
+  outline: 2px solid #d8cfbd;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ── Scrollbar ── */
@@ -23,11 +39,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #30363d;
+  background: #36414c;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #484f58;
+  background: #5a6672;
 }
 
 /* ── Terminal ── */
@@ -35,56 +51,41 @@ body {
   padding: 8px;
 }
 
-/* ── Dot-grid background (Login, etc.) ── */
+/* ── Grid-edit alignment aid (Overview, drag mode) — graph-paper dots
+   that help line widgets up while rearranging, not decoration. ── */
 .bg-dot-grid {
-  background-image: radial-gradient(circle, #30363d 1px, transparent 1px);
+  background-image: radial-gradient(circle, #36414c 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
-/* ── Gradient border card ── */
-.card-gradient-border {
-  position: relative;
-}
-.card-gradient-border::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(88,166,255,0.3), rgba(57,197,207,0.1), rgba(88,166,255,0.05));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+/* ── Rack-ruler background (Login) — the tick marks on a physical
+   rack rail, used once, on the one screen that sets the tone. ── */
+.bg-rack-ruler {
+  background-image:
+    repeating-linear-gradient(to bottom, #29323b 0, #29323b 1px, transparent 1px, transparent 32px),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 31px, #36414c 31px, #36414c 32px);
+  background-size: 100% 32px;
+  mask-image: linear-gradient(to right, transparent, #000 6%, #000 14%, transparent 26%, transparent 74%, #000 86%, #000 94%, transparent);
 }
 
-/* ── Nav active indicator bar ── */
-.nav-active-bar {
+/* ── LED indicator — small physical status light with an inset bezel,
+   used wherever the panel reports live state (connection, service health). ── */
+.led {
+  --led-color: #95a0aa;
   position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--led-color);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 5px 1px color-mix(in srgb, var(--led-color) 65%, transparent);
 }
-.nav-active-bar::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 60%;
-  border-radius: 0 2px 2px 0;
-  background: #58a6ff;
-}
-
-/* ── Status dot glow ── */
-.dot-green-glow {
-  box-shadow: 0 0 6px 1px rgba(63, 185, 80, 0.6);
-}
-.dot-red-glow {
-  box-shadow: 0 0 6px 1px rgba(248, 81, 73, 0.6);
-}
-.dot-yellow-glow {
-  box-shadow: 0 0 6px 1px rgba(210, 153, 34, 0.5);
-}
+.led-ok   { --led-color: #3fcf6b; }
+.led-warn { --led-color: #eea53b; }
+.led-crit { --led-color: #ef5a50; }
+.led-off  { --led-color: #56616c; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35); }
 
 /* ── Sidebar tooltip animation ── */
 @keyframes fadeSlideIn {
@@ -97,17 +98,17 @@ body {
   transition: none !important; /* disable item transition during drag for performance */
 }
 .react-grid-item.react-grid-placeholder {
-  background: rgba(88, 166, 255, 0.08) !important;
-  border: 1px dashed rgba(88, 166, 255, 0.3) !important;
-  border-radius: 12px !important;
+  background: rgba(216, 207, 189, 0.08) !important;
+  border: 1px dashed rgba(216, 207, 189, 0.3) !important;
+  border-radius: 4px !important;
   opacity: 1 !important;
   transition: none !important;
 }
 .react-grid-item.react-draggable-dragging {
   z-index: 100;
   opacity: 0.85;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(88, 166, 255, 0.3);
-  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(216, 207, 189, 0.3);
+  border-radius: 4px;
   transition: box-shadow 0.15s ease !important;
 }
 .react-grid-item.resizing {
@@ -130,8 +131,8 @@ body {
   bottom: 3px;
   width: 8px;
   height: 8px;
-  border-right: 2px solid rgba(88, 166, 255, 0.5);
-  border-bottom: 2px solid rgba(88, 166, 255, 0.5);
+  border-right: 2px solid rgba(216, 207, 189, 0.5);
+  border-bottom: 2px solid rgba(216, 207, 189, 0.5);
   border-radius: 0 0 2px 0;
 }
 .react-resizable-handle-s::after,
@@ -145,10 +146,10 @@ body {
   left: 0 !important;
   right: 0 !important;
   cursor: s-resize;
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 0 4px 4px;
 }
 .react-resizable-handle-s:hover {
-  background: rgba(88, 166, 255, 0.12);
+  background: rgba(216, 207, 189, 0.12);
 }
 .react-resizable-handle-e {
   width: 6px !important;
@@ -157,8 +158,8 @@ body {
   right: 0 !important;
   bottom: 0 !important;
   cursor: e-resize;
-  border-radius: 0 12px 12px 0;
+  border-radius: 0 4px 4px 0;
 }
 .react-resizable-handle-e:hover {
-  background: rgba(88, 166, 255, 0.12);
+  background: rgba(216, 207, 189, 0.12);
 }

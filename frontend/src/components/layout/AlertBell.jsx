@@ -84,19 +84,19 @@ function ThresholdSettings({ thresholds, onChange, onClose }) {
 
   return (
     <div className="px-3 py-3 border-t border-panel-border">
-      <div className="text-[10px] uppercase tracking-widest text-panel-muted/50 mb-2.5">Eşik Değerleri (%)</div>
+      <div className="text-[13px] font-medium text-panel-muted mb-2.5">Eşik değerleri (%)</div>
       {rows.map(({ key, label }) => (
         <div key={key} className="flex items-center gap-2 mb-2">
           <span className="text-xs text-panel-muted w-10 shrink-0">{label}</span>
           <div className="flex items-center gap-1 flex-1">
-            <span className="text-[10px] text-panel-yellow/70">⚠</span>
+            <span className="text-[11px] text-panel-yellow/70">⚠</span>
             <input type="number" min={0} max={100} value={local[key].warn}
               onChange={e => set(key, 'warn', e.target.value)}
               className="w-14 bg-panel-bg border border-panel-border rounded px-1.5 py-0.5 text-xs font-mono text-panel-text text-center focus:outline-none focus:border-panel-yellow/50"
             />
           </div>
           <div className="flex items-center gap-1 flex-1">
-            <span className="text-[10px] text-panel-red/70">✕</span>
+            <span className="text-[11px] text-panel-red/70">✕</span>
             <input type="number" min={0} max={100} value={local[key].crit}
               onChange={e => set(key, 'crit', e.target.value)}
               className="w-14 bg-panel-bg border border-panel-border rounded px-1.5 py-0.5 text-xs font-mono text-panel-text text-center focus:outline-none focus:border-panel-red/50"
@@ -105,7 +105,7 @@ function ThresholdSettings({ thresholds, onChange, onClose }) {
         </div>
       ))}
       <button onClick={onClose}
-        className="mt-1 w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-panel-green bg-panel-green/10 rounded-lg hover:bg-panel-green/20 transition-colors">
+        className="mt-1 w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-panel-green bg-panel-green/10 rounded hover:bg-panel-green/20 transition-colors">
         <Check size={11} /> Tamam
       </button>
     </div>
@@ -163,14 +163,14 @@ export default function AlertBell() {
       >
         <BellIcon size={14} className={total > 0 ? (critCount > 0 ? 'text-panel-red' : 'text-panel-yellow') : ''} />
         {total > 0 && (
-          <span className={`absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 rounded-full text-[9px] font-bold text-white flex items-center justify-center ${badgeColor}`}>
+          <span className={`absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 rounded-full text-[10px] font-bold text-white flex items-center justify-center ${badgeColor}`}>
             {total}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute top-full right-0 mt-2 w-72 bg-panel-surface border border-panel-border rounded-xl shadow-xl z-[200] overflow-hidden">
+        <div className="absolute top-full right-0 mt-2 w-72 bg-panel-surface border border-panel-border rounded-md shadow-xl z-[200] overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-panel-border">
             <span className="text-xs font-medium text-panel-text">
@@ -179,7 +179,7 @@ export default function AlertBell() {
             <div className="flex items-center gap-1">
               {total > 0 && (
                 <button onClick={dismissAll}
-                  className="text-[10px] text-panel-muted/60 hover:text-panel-accent px-1.5 py-0.5 rounded transition-colors">
+                  className="text-[11px] text-panel-muted/60 hover:text-panel-accent px-1.5 py-0.5 rounded transition-colors">
                   tümünü kapat
                 </button>
               )}
@@ -210,7 +210,7 @@ export default function AlertBell() {
                       }
                       <div className="flex-1 min-w-0">
                         <div className="text-xs text-panel-text">{a.msg}</div>
-                        {a.detail && <div className="text-[10px] text-panel-muted mt-0.5">{a.detail}</div>}
+                        {a.detail && <div className="text-[11px] text-panel-muted mt-0.5">{a.detail}</div>}
                       </div>
                       <button onClick={() => dismiss(a.id)}
                         className="shrink-0 text-panel-muted/40 hover:text-panel-muted transition-colors mt-0.5">

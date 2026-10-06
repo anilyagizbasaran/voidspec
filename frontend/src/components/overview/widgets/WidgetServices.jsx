@@ -17,9 +17,9 @@ const WidgetServices = React.memo(function WidgetServices() {
   return (
     <StatusCard
       icon={Activity}
-      label="Services"
-      value={active != null ? `${active} active` : '—'}
-      sub={svcs ? `${failed} failed` : null}
+      label="Servisler"
+      value={active != null ? `${active} çalışıyor` : '—'}
+      sub={svcs ? `${failed} hatalı` : null}
       status={failed > 0 ? 'err' : active > 0 ? 'ok' : 'off'}
       onClick={() => setActiveTab('services')}
     />

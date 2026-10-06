@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { config } from '../config.js';
 import { verifyWsAuth, rejectWs } from '../auth/middleware.js';
 
-// sessionId -> { ptyProcess, buffer, owner, dataDisposable, exitDisposable, reconnectTimer }
+// sessionId -> { ptyProcess, buffer, owner, dataDisposable, exitDisposable, reconnectTimer, socket }
 const sessions = new Map();
 const BUFFER_MAX = 512 * 1024; // 512 KB
 
@@ -45,6 +45,19 @@ function destroySession(sessionId) {
 function attachSocket(session, sessionId, socket) {
   const { ptyProcess } = session;
 
+  // Aynı oturuma yeni bir socket bağlandıysa eskisini kapat. Ağ kopmasında
+  // sunucu eski bağlantının öldüğünü istemci yeniden bağlandıktan SONRA fark
+  // edebiliyor; eski socket'in geç gelen 'close' olayı aktif oturum için
+  // yok etme sayacı kuruyor ve kullanılan terminal 20 dk sonra kapanıyordu.
+  const previous = session.socket;
+  session.socket = socket;
+  if (previous && previous !== socket) {
+    try {
+      if (previous.readyState === 1) previous.send(JSON.stringify({ type: 'detached' }));
+      previous.close();
+    } catch { /* zaten kapalı */ }
+  }
+
   // Önceki handler'ları temizle. Eskiden sadece onData temizleniyordu, onExit
   // her yeniden bağlanmada tekrar ekleniyor ve listener birikiyordu.
   session.dataDisposable?.dispose();
@@ -71,6 +84,7 @@ function attachSocket(session, sessionId, socket) {
   });
 
   socket.on('message', raw => {
+    if (session.socket !== socket) return;
     try {
       const msg = JSON.parse(raw.toString());
       if (msg.type === 'input') ptyProcess.write(msg.data);
@@ -85,6 +99,9 @@ function attachSocket(session, sessionId, socket) {
   socket.on('close', () => {
     // Hemen öldürme; yeniden bağlanma için bekle
     if (!sessions.has(sessionId)) return;
+    // Oturum başka bir socket'e devredildiyse bu kapanma onu ilgilendirmez.
+    if (session.socket !== socket) return;
+    session.socket = null;
     clearTimeout(session.reconnectTimer);
     session.reconnectTimer = setTimeout(() => destroySession(sessionId), config.terminalReconnectMs);
   });
@@ -129,6 +146,7 @@ export async function terminalWs(fastify) {
       dataDisposable: null,
       exitDisposable: null,
       reconnectTimer: null,
+      socket: null,
     };
     sessions.set(sessionId, session);
 

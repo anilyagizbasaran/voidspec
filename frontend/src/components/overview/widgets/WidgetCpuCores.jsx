@@ -21,11 +21,11 @@ const WidgetCpuCores = React.memo(function WidgetCpuCores() {
   const showLabel = !bp.compact;
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden h-full flex flex-col">
+    <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <Cpu size={13} className="text-panel-muted" />
-          <span className="text-xs text-panel-muted tracking-wide">Per-Core CPU</span>
+          <span className="text-[13px] font-medium text-panel-muted">Çekirdek başına CPU</span>
         </div>
         {overall != null && (
           <span className={`text-[11px] font-mono tabular-nums font-semibold ${coreColor(overall).text}`}>
@@ -45,8 +45,8 @@ const WidgetCpuCores = React.memo(function WidgetCpuCores() {
                 <div key={i} className="flex flex-col gap-1">
                   {showLabel && (
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-panel-muted">C{i}</span>
-                      <span className={`text-[10px] font-mono tabular-nums ${c.text}`}>{pct.toFixed(0)}%</span>
+                      <span className="text-[11px] text-panel-muted">C{i}</span>
+                      <span className={`text-[11px] font-mono tabular-nums ${c.text}`}>{pct.toFixed(0)}%</span>
                     </div>
                   )}
                   <div className="h-1.5 bg-panel-hover rounded-full overflow-hidden">
@@ -56,7 +56,7 @@ const WidgetCpuCores = React.memo(function WidgetCpuCores() {
                     />
                   </div>
                   {!showLabel && (
-                    <span className={`text-[9px] font-mono text-center ${c.text}`}>{pct.toFixed(0)}</span>
+                    <span className={`text-[10px] font-mono text-center ${c.text}`}>{pct.toFixed(0)}</span>
                   )}
                 </div>
               );

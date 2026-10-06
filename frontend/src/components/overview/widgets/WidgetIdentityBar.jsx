@@ -12,11 +12,11 @@ const WidgetIdentityBar = React.memo(function WidgetIdentityBar() {
   const temp = hardware?.cpu?.temperature;
 
   return (
-    <div className="flex h-full items-center bg-panel-surface border border-panel-border rounded-xl px-4 overflow-hidden">
+    <div className="flex h-full items-center bg-panel-surface border border-panel-border rounded-md px-4 overflow-hidden">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs w-full">
         <div className="flex items-center gap-2 shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-panel-green animate-pulse shrink-0" />
-          <span className="text-panel-text font-semibold tracking-wide">{hardware?.os?.hostname ?? '—'}</span>
+          <span className="text-panel-text font-semibold">{hardware?.os?.hostname ?? '—'}</span>
         </div>
 
         {!bp.compact && (

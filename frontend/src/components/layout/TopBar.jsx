@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import client from '../../api/client.js';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
+import { tr } from 'date-fns/locale';
+import { netTotals } from '../../utils/net.js';
 
 /* ── Metric definitions ── */
 function fmtBytes(b) {
@@ -34,8 +36,9 @@ const METRICS = {
   network: {
     label: 'Net',
     get: (s) => {
-      const rx = s?.network?.reduce((a, n) => a + (n.rx || 0), 0);
-      return rx != null ? `${fmtBytes(rx)}/s` : null;
+      if (!s?.network) return null;
+      const { rx, tx } = netTotals(s);
+      return `↓${fmtBytes(rx)}/s ↑${fmtBytes(tx)}/s`;
     },
     color: () => 'text-panel-yellow',
   },
@@ -66,10 +69,12 @@ function saveConfig(cfg) {
 
 /* ── Metric pill ── */
 function StatPill({ label, value, colorClass }) {
+  // Normal durumda nötr; renk yalnızca eşik aşıldığında görünür.
+  if (colorClass === 'text-panel-green' || colorClass === 'text-panel-cyan') colorClass = 'text-panel-text';
   return (
-    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-panel-hover border border-panel-border text-xs shrink-0">
+    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-panel-hover border border-panel-border text-xs shrink-0">
       <span className="text-panel-muted">{label}</span>
-      <span className={`font-semibold font-mono tabular-nums ${colorClass}`}>{value}</span>
+      <span className={`font-semibold tabular-nums ${colorClass}`}>{value}</span>
     </div>
   );
 }
@@ -110,10 +115,10 @@ function MetricConfig({ config, onConfigChange, onClose }) {
   }
 
   return (
-    <div className="absolute top-full right-0 mt-2 w-52 bg-panel-surface border border-panel-border rounded-xl shadow-xl z-[200] overflow-hidden">
+    <div className="absolute top-full right-0 mt-2 w-52 bg-panel-surface border border-panel-border rounded-md shadow-xl z-[200] overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-panel-border">
-        <span className="text-[10px] uppercase tracking-widest text-panel-muted/60 font-medium">Metrikler</span>
-        <span className="text-[10px] text-panel-muted/40">sürükle → sırala</span>
+        <span className="text-[13px] font-medium text-panel-muted">Metrikler</span>
+        <span className="text-[11px] text-panel-muted/40">Sıralamak için sürükle</span>
       </div>
 
       <div className="p-2 flex flex-col gap-0.5">
@@ -128,7 +133,7 @@ function MetricConfig({ config, onConfigChange, onClose }) {
               onDragStart={() => onDragStart(i)}
               onDragOver={(e) => onDragOver(e, i)}
               onDragEnd={onDragEnd}
-              className={`flex items-center gap-2 px-2 py-2 rounded-lg cursor-grab active:cursor-grabbing transition-all select-none
+              className={`flex items-center gap-2 px-2 py-2 rounded cursor-grab active:cursor-grabbing transition-colors select-none
                 ${isDragging ? 'opacity-40 bg-panel-hover' : 'hover:bg-panel-hover'}`}
             >
               <GripVertical size={13} className="text-panel-muted/30 shrink-0" />
@@ -192,7 +197,7 @@ export default function TopBar() {
   }
 
   const uptimeStr = stats?.uptime
-    ? formatDistanceToNow(new Date(Date.now() - stats.uptime * 1000), { addSuffix: false })
+    ? formatDistanceToNow(new Date(Date.now() - stats.uptime * 1000), { addSuffix: false, locale: tr })
     : null;
 
   /* Render pills in order, only visible ones */
@@ -211,7 +216,7 @@ export default function TopBar() {
 
       {/* Hostname */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className="w-2 h-2 rounded-full bg-panel-green dot-green-glow shrink-0" />
+        <span className="led led-ok shrink-0" />
         <div className="flex items-center gap-1.5 text-xs min-w-0">
           <Server size={11} className="text-panel-muted shrink-0" />
           <span className="text-panel-text font-semibold truncate">{stats?.hostname || '—'}</span>
@@ -221,7 +226,7 @@ export default function TopBar() {
       {/* Uptime */}
       {uptimeStr && (
         <span className="hidden lg:block text-panel-muted text-xs shrink-0">
-          up <span className="text-panel-text">{uptimeStr}</span>
+          <span className="text-panel-text">{uptimeStr}</span> açık
         </span>
       )}
 
@@ -242,7 +247,7 @@ export default function TopBar() {
         {stats && (
           <div className="flex sm:hidden items-center gap-1.5 text-xs">
             {pills.slice(0, 2).map(p => (
-              <span key={p.id} className={`font-mono font-semibold ${p.color}`}>{p.value}</span>
+              <span key={p.id} className={`font-semibold tabular-nums ${['text-panel-green', 'text-panel-cyan'].includes(p.color) ? 'text-panel-text' : p.color}`}>{p.value}</span>
             ))}
           </div>
         )}
@@ -257,7 +262,7 @@ export default function TopBar() {
           <button
             onClick={() => setShowConfig(p => !p)}
             title="Metrikleri özelleştir"
-            className={`flex items-center justify-center w-7 h-7 rounded-md transition-all
+            className={`flex items-center justify-center w-7 h-7 rounded transition-all
               ${showConfig
                 ? 'bg-panel-accent/15 text-panel-accent'
                 : 'text-panel-muted/50 hover:text-panel-muted hover:bg-panel-hover'}`}
@@ -279,8 +284,8 @@ export default function TopBar() {
         {/* User */}
         <div className="hidden sm:flex items-center gap-1.5">
           <div className="w-6 h-6 rounded-md bg-panel-accent/15 flex items-center justify-center">
-            <span className="text-panel-accent text-[10px] font-bold uppercase">
-              {user?.username?.[0] ?? 'A'}
+            <span className="text-panel-accent text-[11px] font-bold">
+              {(user?.username?.[0] ?? 'a').toLocaleUpperCase('tr')}
             </span>
           </div>
           <span className="text-panel-muted text-xs">{user?.username}</span>
@@ -291,10 +296,10 @@ export default function TopBar() {
         <button
           onClick={logout}
           className="flex items-center gap-1.5 text-panel-muted hover:text-panel-red text-xs transition-colors px-2 py-1 rounded hover:bg-panel-red/10"
-          title="Logout"
+          title="Çıkış yap"
         >
           <LogOut size={13} />
-          <span className="hidden sm:inline">Logout</span>
+          <span className="hidden sm:inline">Çıkış yap</span>
         </button>
       </div>
     </header>

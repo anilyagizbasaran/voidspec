@@ -21,10 +21,10 @@ export default function PortsTable() {
   );
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-lg p-4">
+    <div className="bg-panel-surface border border-panel-border rounded-md p-4">
       <div className="flex items-center gap-2 mb-3">
         <Shield size={13} className="text-panel-muted" />
-        <span className="text-panel-muted text-xs uppercase tracking-wider">Listening Ports</span>
+        <span className="text-panel-muted text-sm font-medium">Dinlenen portlar</span>
         <span className="ml-1 text-panel-muted text-xs">({data?.ports?.length ?? '…'})</span>
         <button
           onClick={() => refetch()}

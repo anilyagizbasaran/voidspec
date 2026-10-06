@@ -43,11 +43,11 @@ const WidgetDockerList = React.memo(function WidgetDockerList() {
   const running = containers.filter(c => c.state === 'running').length;
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden h-full flex flex-col">
+    <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <Container size={13} className="text-panel-muted" />
-          {!bp.compact && <span className="text-xs text-panel-muted tracking-wide">Docker Containers</span>}
+          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">Docker container'ları</span>}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-mono">
@@ -56,7 +56,7 @@ const WidgetDockerList = React.memo(function WidgetDockerList() {
           </span>
           {!bp.compact && (
             <button onClick={() => setActiveTab('docker')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
-              tümü →
+              Tümünü gör
             </button>
           )}
         </div>
@@ -81,7 +81,7 @@ const WidgetDockerList = React.memo(function WidgetDockerList() {
                   {c.name?.replace(/^\//, '')}
                 </div>
                 {!bp.compact && (
-                  <div className="text-[10px] text-panel-muted truncate">
+                  <div className="text-[11px] text-panel-muted truncate">
                     {c.image?.replace(/^sha256:/, '').slice(0, 28)}
                     {isRunning && c.startedAt && (
                       <span className="ml-1 text-panel-muted/40">{relativeTime(c.startedAt)}</span>

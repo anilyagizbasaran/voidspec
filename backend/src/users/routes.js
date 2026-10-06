@@ -120,7 +120,7 @@ export async function userRoutes(fastify) {
     const [groups, locked, sshKeys, logins] = await Promise.all([
       getUserGroups(username),
       isLocked(username),
-      getSSHKeys(user.home),
+      getSSHKeys(user.home).catch(() => []),
       getLastLogin(username),
     ]);
 
@@ -269,8 +269,19 @@ export async function userRoutes(fastify) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+// Dosya yoksa anahtar da yok; başka bir okuma hatasında fırlatıyoruz. Aksi
+// halde anahtar eklerken mevcut liste boş sanılıp authorized_keys yalnızca
+// yeni anahtarla yeniden yazılıyor, eski erişimler kayboluyordu.
+export function sshKeysRaw({ ok, stdout, stderr }) {
+  if (ok) return stdout;
+  if (/No such file or directory/i.test(stderr)) return '';
+  const err = new Error(`authorized_keys okunamadı: ${stderr || 'bilinmeyen hata'}`);
+  err.statusCode = 503;
+  throw err;
+}
+
 async function getSSHKeys(home) {
-  const { stdout: raw } = await host(['cat', `${home}/.ssh/authorized_keys`]);
+  const raw = sshKeysRaw(await host(['cat', `${home}/.ssh/authorized_keys`]));
   return raw.split('\n').filter(Boolean).map((line, idx) => {
     const parts = line.trim().split(/\s+/);
     return {

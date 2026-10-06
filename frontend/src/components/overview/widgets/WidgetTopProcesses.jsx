@@ -23,11 +23,11 @@ const WidgetTopProcesses = React.memo(function WidgetTopProcesses() {
   }, [procs, sortBy, maxRows]);
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden h-full flex flex-col">
+    <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <Activity size={13} className="text-panel-muted" />
-          {!bp.compact && <span className="text-xs text-panel-muted tracking-wide">Top Processes</span>}
+          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">En çok kaynak kullanan süreçler</span>}
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-md overflow-hidden border border-panel-border text-[11px]">
@@ -42,7 +42,7 @@ const WidgetTopProcesses = React.memo(function WidgetTopProcesses() {
           </div>
           {!bp.compact && (
             <button onClick={() => setActiveTab('processes')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
-              tümü →
+              Tümünü gör
             </button>
           )}
         </div>
@@ -53,7 +53,7 @@ const WidgetTopProcesses = React.memo(function WidgetTopProcesses() {
           const memColor = p.mem > 500000 ? 'text-panel-red' : p.mem > 200000 ? 'text-panel-yellow' : 'text-panel-muted';
           return (
             <div key={p.pid} className="flex items-center gap-2 px-3 py-2 hover:bg-panel-hover/50 transition-colors">
-              {!bp.compact && <span className="text-panel-muted/40 text-[10px] w-3 shrink-0">{i + 1}</span>}
+              {!bp.compact && <span className="text-panel-muted/40 text-[11px] w-3 shrink-0">{i + 1}</span>}
               <span className="text-panel-text text-xs font-mono truncate flex-1">{p.name}</span>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`text-xs font-mono tabular-nums ${sortBy === 'cpu' ? cpuColor : 'text-panel-muted'}`}>

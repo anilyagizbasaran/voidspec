@@ -28,12 +28,12 @@ const WidgetPorts = React.memo(function WidgetPorts() {
   }, [data, search]);
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden h-full flex flex-col">
+    <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <Network size={13} className="text-panel-muted" />
-          <span className="text-xs text-panel-muted tracking-wide">
-            {bp.compact ? 'Portlar' : 'Dinlenen Portlar'}
+          <span className="text-[13px] font-medium text-panel-muted">
+            {bp.compact ? 'Portlar' : 'Dinlenen portlar'}
           </span>
         </div>
         <span className="text-[11px] font-mono text-panel-muted/60">{data?.ports?.length ?? 0} port</span>
@@ -41,7 +41,7 @@ const WidgetPorts = React.memo(function WidgetPorts() {
 
       {!bp.compact && (
         <div className="px-3 py-2 border-b border-panel-border shrink-0">
-          <div className="flex items-center gap-2 bg-panel-bg border border-panel-border rounded-lg px-2.5 py-1.5">
+          <div className="flex items-center gap-2 bg-panel-bg border border-panel-border rounded px-2.5 py-1.5">
             <Search size={11} className="text-panel-muted/50 shrink-0" />
             <input
               type="text"
@@ -68,20 +68,20 @@ const WidgetPorts = React.memo(function WidgetPorts() {
               <span className="text-panel-green text-xs font-mono tabular-nums font-semibold w-12 shrink-0">
                 {p.localPort}
               </span>
-              <span className="text-[10px] text-panel-muted/50 uppercase w-8 shrink-0">{p.protocol}</span>
+              <span className="text-[11px] text-panel-muted/70 w-8 shrink-0">{p.protocol}</span>
               <div className="flex-1 min-w-0">
                 {known && (
-                  <span className="text-[10px] text-panel-accent mr-1.5">{known}</span>
+                  <span className="text-[11px] text-panel-accent mr-1.5">{known}</span>
                 )}
                 {p.process && (
                   <span className="text-xs text-panel-text font-mono truncate">{p.process}</span>
                 )}
                 {addr && !bp.compact && (
-                  <span className="text-[10px] text-panel-muted/50 ml-1.5">{addr}</span>
+                  <span className="text-[11px] text-panel-muted/50 ml-1.5">{addr}</span>
                 )}
               </div>
               {p.pid > 0 && !bp.compact && (
-                <span className="text-[10px] text-panel-muted/40 font-mono shrink-0">pid {p.pid}</span>
+                <span className="text-[11px] text-panel-muted/40 font-mono shrink-0">pid {p.pid}</span>
               )}
             </div>
           );

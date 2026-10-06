@@ -84,7 +84,7 @@ function UndoToast({ item, onUndo, onDismiss }) {
   }, [item, onDismiss]);
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2 bg-panel-surface-2 border border-panel-border rounded-lg text-xs shadow-lg animate-fade-up">
+    <div className="flex items-center gap-3 px-3 py-2 bg-panel-surface-2 border border-panel-border rounded-md text-xs shadow-lg animate-fade-up">
       <span className="text-panel-muted">
         <span className="text-panel-text">{WIDGET_REGISTRY[item.id]?.label}</span> gizlendi
       </span>
@@ -105,7 +105,7 @@ function UndoToast({ item, onUndo, onDismiss }) {
 /* ── Confirm Reset Dialog ── */
 function ResetConfirm({ onConfirm, onCancel }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2 bg-panel-red/10 border border-panel-red/25 rounded-lg text-xs shadow-lg animate-fade-up">
+    <div className="flex items-center gap-3 px-3 py-2 bg-panel-red/10 border border-panel-red/25 rounded text-xs shadow-lg animate-fade-up">
       <span className="text-panel-muted">Layout sıfırlansın mı?</span>
       <button onClick={onConfirm} className="text-panel-red hover:text-panel-red/80 font-medium transition-colors">Evet, sıfırla</button>
       <button onClick={onCancel}  className="text-panel-muted hover:text-panel-text transition-colors">İptal</button>
@@ -244,14 +244,14 @@ export default function OverviewGrid() {
               <div
                 key={item.i}
                 className={`overflow-hidden transition-all duration-200 ${
-                  editMode ? 'ring-1 ring-panel-accent/25 rounded-xl shadow-lg shadow-black/20' : ''
+                  editMode ? 'ring-1 ring-panel-accent/25 rounded-md shadow-lg shadow-black/20' : ''
                 }`}
               >
                 {/* drag handle — only in edit mode */}
                 {editMode && (
                   <div className="wdg-handle absolute inset-x-0 top-0 h-6 z-10 flex items-center px-2 gap-1.5 cursor-grab active:cursor-grabbing bg-panel-bg/85 backdrop-blur-sm border-b border-panel-accent/10 select-none rounded-t-xl">
                     <GripHorizontal size={11} className="text-panel-muted/40 shrink-0" />
-                    <span className="text-[10px] text-panel-muted/60 truncate flex-1">{reg.label}</span>
+                    <span className="text-[11px] text-panel-muted/60 truncate flex-1">{reg.label}</span>
                     <button
                       onMouseDown={e => e.stopPropagation()}
                       onPointerDown={e => e.stopPropagation()}
@@ -288,7 +288,7 @@ export default function OverviewGrid() {
       {editMode && (
         <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-panel-bg border-t border-panel-accent/20 z-10">
           {/* left: label */}
-          <span className="text-[10px] text-panel-accent/60 uppercase tracking-widest font-medium hidden sm:block">
+          <span className="text-[11px] text-panel-accent/80 font-medium hidden sm:block">
             Düzenleme Modu
           </span>
 
@@ -306,7 +306,7 @@ export default function OverviewGrid() {
             {/* Gallery button */}
             <button
               onClick={() => { setShowGallery(p => !p); setShowReset(false); }}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] border rounded-lg transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] border rounded transition-all ${
                 showGallery
                   ? 'bg-panel-accent/15 border-panel-accent/40 text-panel-accent'
                   : 'bg-panel-surface border-panel-border text-panel-muted hover:text-panel-text hover:border-panel-border/80'
@@ -314,7 +314,7 @@ export default function OverviewGrid() {
             >
               <LayoutGrid size={11} />
               Widget Galerisi
-              <span className="ml-0.5 text-[9px] bg-panel-accent/20 text-panel-accent rounded-full px-1 py-0.5 leading-none">
+              <span className="ml-0.5 text-[10px] bg-panel-accent/20 text-panel-accent rounded-full px-1 py-0.5 leading-none">
                 {state.visible.length}
               </span>
             </button>
@@ -323,7 +323,7 @@ export default function OverviewGrid() {
             {!showReset && (
               <button
                 onClick={() => { setShowReset(true); setShowGallery(false); }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] bg-panel-surface border border-panel-border rounded-lg text-panel-muted hover:text-panel-yellow hover:border-panel-yellow/30 transition-all"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] bg-panel-surface border border-panel-border rounded-md text-panel-muted hover:text-panel-yellow hover:border-panel-yellow/30 transition-all"
               >
                 <RotateCcw size={11} />
                 Sıfırla
@@ -333,7 +333,7 @@ export default function OverviewGrid() {
             {/* Done */}
             <button
               onClick={exitEdit}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] bg-panel-green/12 border border-panel-green/30 rounded-lg text-panel-green hover:bg-panel-green/20 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] bg-panel-green/12 border border-panel-green/30 rounded text-panel-green hover:bg-panel-green/20 transition-all"
             >
               <Check size={11} />
               Bitti
@@ -347,7 +347,7 @@ export default function OverviewGrid() {
         <button
           onClick={() => setEditMode(true)}
           title="Layout'u düzenle"
-          className="absolute bottom-3 right-3 z-10 p-2 text-panel-muted/30 hover:text-panel-muted hover:bg-panel-hover rounded-lg transition-all"
+          className="absolute bottom-3 right-3 z-10 p-2 text-panel-muted/30 hover:text-panel-muted hover:bg-panel-hover rounded transition-all"
         >
           <LayoutGrid size={14} />
         </button>

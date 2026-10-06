@@ -13,14 +13,14 @@ const WidgetCpu = React.memo(function WidgetCpu() {
   const trend = useTrend(history);
   return (
     <ResourceCard
-      icon={Cpu} label="CPU Usage"
+      icon={Cpu} label="İşlemci"
       percent={cpu?.load}
       primary={cpu ? `${cpu.load}%` : '—'}
-      secondary={cpu ? `${cpu.cores} cores · ${cpu.loadAvg?.[0]?.toFixed(2) ?? '—'} avg` : ''}
-      accent="text-panel-green"
+      secondary={cpu ? `${cpu.cores} çekirdek, yük ${cpu.loadAvg?.[0]?.toFixed(2) ?? '—'}` : ''}
+      accent="text-panel-text"
       onClick={() => setActiveTab('processes')}
       sparkData={history}
-      sparkColor="#3fb950"
+      sparkColor="#d8cfbd"
       trend={trend}
     />
   );

@@ -14,14 +14,14 @@ const WidgetMemory = React.memo(function WidgetMemory() {
   const trend = useTrend(history);
   return (
     <ResourceCard
-      icon={MemoryStick} label="Memory"
+      icon={MemoryStick} label="Bellek"
       percent={mem?.percent}
       primary={mem ? `${mem.percent}%` : '—'}
       secondary={mem ? `${fmtBytes(mem.used)} / ${fmtBytes(mem.total)}` : ''}
-      accent="text-panel-cyan"
+      accent="text-panel-text"
       onClick={() => setActiveTab('processes')}
       sparkData={history}
-      sparkColor="#39c5cf"
+      sparkColor="#d8cfbd"
       trend={trend}
     />
   );

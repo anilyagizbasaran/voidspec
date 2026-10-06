@@ -27,10 +27,10 @@ const WidgetCpuRamChart = React.memo(function WidgetCpuRamChart() {
   const latest = history.at(-1);
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden h-full flex flex-col">
+    <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
-        <span className="text-xs text-panel-muted tracking-wide">
-          {bp.compact ? 'CPU & RAM' : 'CPU & RAM Geçmişi'}
+        <span className="text-[13px] font-medium text-panel-muted">
+          {bp.compact ? 'CPU ve RAM' : 'CPU ve RAM geçmişi'}
         </span>
         {latest && (
           <div className="flex items-center gap-3 text-[11px] font-mono tabular-nums">
@@ -44,25 +44,25 @@ const WidgetCpuRamChart = React.memo(function WidgetCpuRamChart() {
           <AreaChart data={history} margin={{ top: 4, right: 4, bottom: 0, left: bp.compact ? -30 : -20 }}>
             <defs>
               <linearGradient id="gcpu" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#3fb950" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#3fb950" stopOpacity={0} />
+                <stop offset="5%"  stopColor="#3fcf6b" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#3fcf6b" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gram" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#39c5cf" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#39c5cf" stopOpacity={0} />
+                <stop offset="5%"  stopColor="#63bfd8" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#63bfd8" stopOpacity={0} />
               </linearGradient>
             </defs>
             {!bp.compact && (
-              <XAxis dataKey="t" tick={{ fill: '#7d8590', fontSize: 9 }} tickLine={false} axisLine={false} interval={14} />
+              <XAxis dataKey="t" tick={{ fill: '#95a0aa', fontSize: 9 }} tickLine={false} axisLine={false} interval={14} />
             )}
-            <YAxis domain={[0, 100]} tick={{ fill: '#7d8590', fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} />
+            <YAxis domain={[0, 100]} tick={{ fill: '#95a0aa', fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} />
             <Tooltip
-              contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 6, fontSize: 11, padding: '4px 8px' }}
-              labelStyle={{ color: '#7d8590', marginBottom: 2 }}
+              contentStyle={{ background: '#222a32', border: '1px solid #36414c', borderRadius: 6, fontSize: 11, padding: '4px 8px' }}
+              labelStyle={{ color: '#95a0aa', marginBottom: 2 }}
               formatter={(val, name) => [`${val}%`, name === 'cpu' ? 'CPU' : 'RAM']}
             />
-            <Area type="monotone" dataKey="cpu" stroke="#3fb950" strokeWidth={1.5} fill="url(#gcpu)" dot={false} />
-            <Area type="monotone" dataKey="ram" stroke="#39c5cf" strokeWidth={1.5} fill="url(#gram)" dot={false} />
+            <Area type="monotone" dataKey="cpu" stroke="#3fcf6b" strokeWidth={1.5} fill="url(#gcpu)" dot={false} />
+            <Area type="monotone" dataKey="ram" stroke="#63bfd8" strokeWidth={1.5} fill="url(#gram)" dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       </div>

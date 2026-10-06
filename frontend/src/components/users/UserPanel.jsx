@@ -40,7 +40,7 @@ function UserDetail({ username, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-xl h-[85vh] flex flex-col">
+      <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-xl h-[85vh] flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-panel-border shrink-0">
           <Shield size={13} className="text-panel-muted" />
           <span className="text-panel-text text-sm font-mono font-medium">{username}</span>
@@ -69,7 +69,7 @@ function UserDetail({ username, onClose }) {
 
               {/* Groups */}
               <div>
-                <p className="text-panel-muted text-xs mb-2 uppercase tracking-wider">Groups</p>
+                <p className="text-panel-muted text-sm font-medium mb-2">Gruplar</p>
                 <div className="flex flex-wrap gap-1.5">
                   {(data.groups || []).map(g => (
                     <span key={g} className={`px-2 py-0.5 text-xs rounded border font-mono ${
@@ -83,7 +83,7 @@ function UserDetail({ username, onClose }) {
               {/* Recent logins */}
               {data.logins?.length > 0 && (
                 <div>
-                  <p className="text-panel-muted text-xs mb-2 uppercase tracking-wider">Recent Logins</p>
+                  <p className="text-panel-muted text-sm font-medium mb-2">Son girişler</p>
                   <div className="space-y-1">
                     {data.logins.map((l, i) => (
                       <div key={i} className="flex gap-4 text-xs font-mono">
@@ -97,7 +97,7 @@ function UserDetail({ username, onClose }) {
 
               {/* SSH Keys */}
               <div>
-                <p className="text-panel-muted text-xs mb-2 uppercase tracking-wider">SSH Authorized Keys ({data.sshKeys?.length || 0})</p>
+                <p className="text-panel-muted text-sm font-medium mb-2">Yetkili SSH anahtarları ({data.sshKeys?.length || 0})</p>
                 <div className="space-y-1.5 mb-3">
                   {data.sshKeys?.length === 0 && <p className="text-panel-muted text-xs">No keys</p>}
                   {data.sshKeys?.map(k => (
@@ -157,7 +157,7 @@ function CreateUserModal({ onClose, onCreate, loading }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-md p-5 flex flex-col gap-4">
+      <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-md p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <Users size={14} className="text-panel-muted" />
           <h3 className="text-panel-text text-sm font-medium">Create User</h3>
@@ -230,7 +230,7 @@ function ChangePasswordModal({ username, onClose, onSave, loading }) {
   const [showPw,   setShowPw]   = useState(false);
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-sm p-5 flex flex-col gap-4">
+      <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-sm p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <Key size={14} className="text-panel-muted" />
           <h3 className="text-panel-text text-sm font-medium">Change Password — <span className="font-mono">{username}</span></h3>
@@ -326,7 +326,7 @@ export default function UserPanel() {
       </div>
 
       {/* Table */}
-      <div className="bg-panel-surface border border-panel-border rounded-xl overflow-x-auto">
+      <div className="bg-panel-surface border border-panel-border rounded-md overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="text-panel-muted border-b border-panel-border">
             <tr>
@@ -426,7 +426,7 @@ export default function UserPanel() {
       {/* Delete confirm */}
       {deleteUser && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-sm p-5 flex flex-col gap-4">
+          <div className="bg-panel-surface border border-panel-border rounded-md w-full max-w-sm p-5 flex flex-col gap-4">
             <div className="flex items-center gap-2">
               <AlertTriangle size={14} className="text-panel-yellow" />
               <h3 className="text-panel-text text-sm font-medium">Delete <span className="font-mono">{deleteUser.username}</span>?</h3>
@@ -454,7 +454,7 @@ export default function UserPanel() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-20 md:bottom-4 right-4 px-4 py-2.5 rounded-lg border text-xs font-mono z-50 shadow-lg ${
+        <div className={`fixed bottom-20 md:bottom-4 right-4 px-4 py-2.5 rounded border text-xs font-mono z-50 shadow-lg ${
           toast.ok ? 'bg-panel-green/10 border-panel-green text-panel-green'
                    : 'bg-panel-red/10 border-panel-red text-panel-red'
         }`}>{toast.msg}</div>

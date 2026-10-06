@@ -102,7 +102,7 @@ export default function LoginHistory() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="IP, konum, kullanıcı…"
-            className="bg-panel-surface border border-panel-border rounded pl-7 pr-7 py-1 text-xs text-panel-text placeholder-panel-muted focus:outline-none focus:border-panel-accent w-52 font-mono"
+            className="bg-panel-surface border border-panel-border rounded-md pl-7 pr-7 py-1 text-xs text-panel-text placeholder-panel-muted focus:outline-none focus:border-panel-accent w-52 font-mono"
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-panel-muted hover:text-panel-text">
@@ -113,7 +113,7 @@ export default function LoginHistory() {
       </div>
 
       {/* Table */}
-      <div className="bg-panel-surface border border-panel-border rounded-xl overflow-x-auto flex-1">
+      <div className="bg-panel-surface border border-panel-border rounded-md overflow-x-auto flex-1">
         <table className="w-full text-xs">
           <thead className="text-panel-muted border-b border-panel-border bg-panel-surface sticky top-0">
             <tr>

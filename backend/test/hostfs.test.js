@@ -45,3 +45,35 @@ test('HOST_FS_ROOT var olmayan bir yol ise çeviri devre dışı kalır', async 
   assert.equal(mod.toFs('/etc'), '/etc');
   assert.equal(mod.toLogical('/etc'), '/etc');
 });
+
+test('resolveHostPath mutlak symlink\'i host kökü içinde çözer', async () => {
+  const { mkdtemp, mkdir, writeFile, symlink, rm } = await import('fs/promises');
+  const os = await import('os');
+  const root = await mkdtemp(path.join(os.tmpdir(), 'hostfs-'));
+  process.env.HOST_FS_ROOT = root;
+  const mod = await import('../src/lib/hostfs.js?symlink=1');
+  try {
+    await mkdir(`${root}/etc/nginx/sites-available`, { recursive: true });
+    await mkdir(`${root}/etc/nginx/sites-enabled`, { recursive: true });
+    await writeFile(`${root}/etc/nginx/sites-available/pano`, 'server {}');
+    await symlink('/etc/nginx/sites-available/pano', `${root}/etc/nginx/sites-enabled/pano`);
+    await symlink('../sites-available', `${root}/etc/nginx/sites-enabled/rel`);
+    await symlink('/etc/loop', `${root}/etc/loop`);
+
+    assert.equal(await mod.resolveHostPath('/etc/nginx/sites-enabled/pano'), '/etc/nginx/sites-available/pano');
+    // Bağlantının kendisi (sil/taşı için)
+    assert.equal(
+      await mod.resolveHostPath('/etc/nginx/sites-enabled/pano', { followLast: false }),
+      '/etc/nginx/sites-enabled/pano',
+    );
+    // Göreli symlink ve ara bileşendeki symlink
+    assert.equal(await mod.resolveHostPath('/etc/nginx/sites-enabled/rel/pano'), '/etc/nginx/sites-available/pano');
+    // Var olmayan kuyruk olduğu gibi eklenir
+    assert.equal(await mod.resolveHostPath('/etc/nginx/sites-enabled/rel/yeni.conf'), '/etc/nginx/sites-available/yeni.conf');
+    // Kökün üstüne çıkılamaz
+    assert.equal(await mod.resolveHostPath('/../../etc/nginx'), '/etc/nginx');
+    await assert.rejects(mod.resolveHostPath('/etc/loop'), /symbolic links/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

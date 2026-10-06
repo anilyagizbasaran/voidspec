@@ -44,7 +44,7 @@ function LogViewer({ name, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div ref={panelRef} className="bg-panel-surface border border-panel-border rounded-xl w-full max-w-3xl h-[80vh] flex flex-col">
+      <div ref={panelRef} className="bg-panel-surface border border-panel-border rounded-md w-full max-w-3xl h-[80vh] flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-panel-border shrink-0">
           <FileText size={13} className="text-panel-muted" />
           <span className="text-panel-text text-sm font-mono">{name}</span>
@@ -119,7 +119,7 @@ export default function ServiceList() {
     setPending(`${name}:${action}`);
     try {
       await actionMutation.mutateAsync({ name, action });
-      showToast(true, `${action} → ${name}`);
+      showToast(true, `${name}: ${action} gönderildi`);
     } catch (e) {
       showToast(false, e.response?.data?.error || `Failed: ${action}`);
     } finally {
@@ -207,7 +207,7 @@ export default function ServiceList() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search…"
-            className="bg-panel-surface border border-panel-border rounded pl-7 pr-7 py-1 text-xs text-panel-text placeholder-panel-muted focus:outline-none focus:border-panel-accent w-44 font-mono"
+            className="bg-panel-surface border border-panel-border rounded-md pl-7 pr-7 py-1 text-xs text-panel-text placeholder-panel-muted focus:outline-none focus:border-panel-accent w-44 font-mono"
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-panel-muted hover:text-panel-text">
@@ -218,7 +218,7 @@ export default function ServiceList() {
       </div>
 
       {/* Table */}
-      <div className="bg-panel-surface border border-panel-border rounded-xl overflow-x-auto flex-1">
+      <div className="bg-panel-surface border border-panel-border rounded-md overflow-x-auto flex-1">
         <table className="w-full text-xs">
           <thead className="text-panel-muted border-b border-panel-border bg-panel-surface sticky top-0">
             <tr>
@@ -321,7 +321,7 @@ export default function ServiceList() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-20 md:bottom-4 right-4 px-4 py-2.5 rounded-lg border text-xs font-mono z-50 shadow-lg ${
+        <div className={`fixed bottom-20 md:bottom-4 right-4 px-4 py-2.5 rounded border text-xs font-mono z-50 shadow-lg ${
           toast.ok
             ? 'bg-panel-green/10 border-panel-green text-panel-green'
             : 'bg-panel-red/10 border-panel-red text-panel-red'

@@ -25,14 +25,14 @@ const WidgetRecentLogs = React.memo(function WidgetRecentLogs() {
   const maxEntries = bp.tiny ? 3 : bp.compact ? 4 : bp.tall ? 12 : 7;
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden h-full flex flex-col">
+    <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <Clock size={13} className="text-panel-muted" />
-          {!bp.compact && <span className="text-xs text-panel-muted tracking-wide">Recent Errors & Warnings</span>}
+          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">Son hata ve uyarılar</span>}
         </div>
         <button onClick={() => setActiveTab('logs')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
-          tümü →
+          Tümünü gör
         </button>
       </div>
       <div className="flex-1 overflow-auto">
@@ -46,10 +46,10 @@ const WidgetRecentLogs = React.memo(function WidgetRecentLogs() {
             {data.entries.slice(0, maxEntries).map((e, i) => (
               <div key={i} className="flex gap-3 px-4 py-2 hover:bg-panel-hover/50 transition-colors">
                 {!bp.compact && (
-                  <span className="text-panel-muted text-[10px] font-mono shrink-0 mt-0.5 w-16">{fmtTs(e.ts)}</span>
+                  <span className="text-panel-muted text-[11px] font-mono shrink-0 mt-0.5 w-16">{fmtTs(e.ts)}</span>
                 )}
                 <div className="flex-1 min-w-0">
-                  {!bp.compact && <div className="text-panel-muted text-[10px] truncate mb-0.5">{e.unit}</div>}
+                  {!bp.compact && <div className="text-panel-muted text-[11px] truncate mb-0.5">{e.unit}</div>}
                   <div className={`text-xs font-mono truncate ${PCOLOR[e.priority] ?? 'text-panel-text'}`}>{e.msg}</div>
                 </div>
               </div>

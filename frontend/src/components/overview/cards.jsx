@@ -13,21 +13,23 @@ export const ResourceCard = React.memo(function ResourceCard({
   const hc  = percent != null
     ? healthColor(percent)
     : { text: accent, bar: accent.replace('text-', 'bg-') };
+  // Renk = durum: her şey yolundayken sayı sakin kalır, yalnızca eşik aşılınca renklenir.
+  const alarm = percent != null && percent > 65;
+  const numCls = alarm ? hc.text : 'text-panel-text';
 
   /* tiny: just icon + number */
   if (bp.tiny) {
     return (
       <button
         onClick={onClick}
-        className={`relative bg-panel-surface border border-panel-border rounded-xl p-3 text-left overflow-hidden w-full h-full flex flex-col justify-center
-          ${onClick ? 'hover:bg-[#1c2128] cursor-pointer' : 'cursor-default'}`}
+        className={`relative bg-panel-surface border border-panel-border rounded-md p-3 text-left overflow-hidden w-full h-full flex flex-col justify-center
+          ${onClick ? 'hover:bg-panel-hover cursor-pointer' : 'cursor-default'}`}
       >
-        <div className={`absolute top-0 left-0 right-0 h-[2px] ${hc.bar} opacity-60`} />
         <div className="flex items-center gap-2">
-          <Icon size={12} className={hc.text} />
-          <span className={`text-xl font-bold font-mono ${hc.text}`}>{primary}</span>
+          <Icon size={12} className="text-panel-muted" />
+          <span className={`text-2xl font-semibold tabular-nums leading-none ${numCls}`}>{primary}</span>
         </div>
-        <div className="text-panel-muted text-[10px] mt-0.5 truncate">{label}</div>
+        <div className="text-panel-muted text-[11px] mt-0.5 truncate font-chrome">{label}</div>
       </button>
     );
   }
@@ -38,21 +40,18 @@ export const ResourceCard = React.memo(function ResourceCard({
   return (
     <button
       onClick={onClick}
-      className={`group relative bg-panel-surface border border-panel-border rounded-xl p-4 text-left transition-all duration-200 overflow-hidden w-full h-full flex flex-col
-        ${onClick ? 'hover:border-panel-border/80 hover:bg-[#1c2128] cursor-pointer hover:scale-[1.004]' : 'cursor-default'}`}
-      style={{ transformOrigin: 'center' }}
+      className={`group relative bg-panel-surface border border-panel-border rounded-md p-4 text-left transition-colors duration-150 overflow-hidden w-full h-full flex flex-col
+        ${onClick ? 'hover:border-panel-border-light hover:bg-panel-hover cursor-pointer' : 'cursor-default'}`}
     >
-      <div className={`absolute top-0 left-0 right-0 h-[2px] ${hc.bar} opacity-60`} />
-
       <div className="flex items-start justify-between mb-2 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-md bg-panel-hover">
-            <Icon size={13} className={hc.text} />
+          <div className="p-1.5 rounded bg-panel-hover">
+            <Icon size={13} className="text-panel-muted" />
           </div>
-          <span className="text-panel-muted text-xs tracking-wide">{label}</span>
+          <span className="text-panel-muted text-[13px] font-medium">{label}</span>
         </div>
         {trend != null && trend !== 0 ? (
-          <span className={`text-[10px] font-mono tabular-nums ${trend > 0 ? 'text-panel-red' : 'text-panel-green'}`}>
+          <span className={`text-[11px] tabular-nums ${trend > 0 ? 'text-panel-red' : 'text-panel-green'}`}>
             {trend > 0 ? `↑${trend.toFixed(1)}` : `↓${Math.abs(trend).toFixed(1)}`}
           </span>
         ) : onClick ? (
@@ -60,8 +59,8 @@ export const ResourceCard = React.memo(function ResourceCard({
         ) : null}
       </div>
 
-      <div className={`text-2xl font-bold font-mono shrink-0 ${hc.text}`}>{primary}</div>
-      <div className="text-panel-muted text-[11px] font-mono mt-0.5 truncate shrink-0">{secondary}</div>
+      <div className={`text-[28px] font-semibold tabular-nums leading-none shrink-0 ${numCls}`}>{primary}</div>
+      <div className="text-panel-muted text-xs mt-1.5 truncate shrink-0">{secondary}</div>
 
       {showSparkline ? (
         <div className="mt-auto pt-2 -mx-1 w-[calc(100%+8px)]">
@@ -84,19 +83,19 @@ export const StatusCard = React.memo(function StatusCard({ icon: Icon, label, va
   const bp = widgetBreakpoints(px);
 
   const cfg = {
-    ok:   { dot: 'bg-panel-green',  ring: 'border-panel-green/20',  bg: 'hover:bg-panel-green/5',  glow: 'shadow-[0_0_8px_rgba(63,185,80,0.12)]'  },
-    warn: { dot: 'bg-panel-yellow', ring: 'border-panel-yellow/20', bg: 'hover:bg-panel-yellow/5', glow: '' },
-    err:  { dot: 'bg-panel-red',    ring: 'border-panel-red/20',    bg: 'hover:bg-panel-red/5',    glow: 'shadow-[0_0_8px_rgba(248,81,73,0.12)]'  },
-    off:  { dot: 'bg-panel-muted',  ring: 'border-panel-border',    bg: 'hover:bg-panel-hover',    glow: '' },
-  }[status] || { dot: 'bg-panel-muted', ring: 'border-panel-border', bg: 'hover:bg-panel-hover', glow: '' };
+    ok:   { led: 'led-ok',   ring: 'border-panel-green/20',  bg: 'hover:bg-panel-green/5' },
+    warn: { led: 'led-warn', ring: 'border-panel-yellow/20', bg: 'hover:bg-panel-yellow/5' },
+    err:  { led: 'led-crit', ring: 'border-panel-red/20',    bg: 'hover:bg-panel-red/5' },
+    off:  { led: 'led-off',  ring: 'border-panel-border',    bg: 'hover:bg-panel-hover' },
+  }[status] || { led: 'led-off', ring: 'border-panel-border', bg: 'hover:bg-panel-hover' };
 
   if (bp.tiny) {
     return (
       <button
         onClick={onClick}
-        className={`flex items-center gap-2 bg-panel-surface border ${cfg.ring} rounded-xl px-3 py-2 w-full h-full text-left transition-all ${cfg.bg} ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
+        className={`flex items-center gap-2 bg-panel-surface border ${cfg.ring} rounded-md px-3 py-2 w-full h-full text-left transition-colors ${cfg.bg} ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
       >
-        <span className={`w-2 h-2 rounded-full ${cfg.dot} shrink-0`} />
+        <span className={`led ${cfg.led} shrink-0`} />
         <span className="text-panel-text text-xs font-medium truncate">{value}</span>
       </button>
     );
@@ -105,15 +104,14 @@ export const StatusCard = React.memo(function StatusCard({ icon: Icon, label, va
   return (
     <button
       onClick={onClick}
-      className={`group flex items-center gap-3 bg-panel-surface border ${cfg.ring} rounded-xl px-4 py-3 w-full h-full text-left transition-all duration-200 ${cfg.bg} ${cfg.glow} ${onClick ? 'cursor-pointer hover:scale-[1.004]' : 'cursor-default'}`}
-      style={{ transformOrigin: 'center' }}
+      className={`group flex items-center gap-3 bg-panel-surface border ${cfg.ring} rounded-md px-4 py-3 w-full h-full text-left transition-colors duration-150 ${cfg.bg} ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
     >
       <div className="relative shrink-0">
         <Icon size={16} className="text-panel-muted" />
-        <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${cfg.dot} ring-2 ring-panel-surface`} />
+        <span className={`led ${cfg.led} absolute -top-0.5 -right-0.5 ring-2 ring-panel-surface`} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[11px] text-panel-muted mb-0.5">{label}</div>
+        <div className="text-[11px] text-panel-muted mb-0.5 font-chrome">{label}</div>
         <div className="text-panel-text text-xs font-medium truncate">{value}</div>
         {sub && !bp.compact && <div className="text-panel-muted text-[11px] truncate">{sub}</div>}
       </div>

@@ -22,14 +22,14 @@ const WidgetDiskList = React.memo(function WidgetDiskList() {
   const disks = stats?.disk ?? [];
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden h-full flex flex-col">
+    <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <HardDrive size={13} className="text-panel-muted" />
-          {!bp.compact && <span className="text-xs text-panel-muted tracking-wide">Disk Kullanımı</span>}
+          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">Disk Kullanımı</span>}
         </div>
         <button onClick={() => setActiveTab('files')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
-          dosyalar →
+          Dosyalara git
         </button>
       </div>
 
@@ -51,8 +51,8 @@ const WidgetDiskList = React.memo(function WidgetDiskList() {
               <DiskBar pct={pct} />
               {!bp.compact && (
                 <div className="flex justify-between mt-1">
-                  <span className="text-[10px] text-panel-muted">{fmtBytes(d.used)} kullanıldı</span>
-                  <span className="text-[10px] text-panel-muted">{fmtBytes(d.size)} toplam</span>
+                  <span className="text-[11px] text-panel-muted">{fmtBytes(d.used)} kullanıldı</span>
+                  <span className="text-[11px] text-panel-muted">{fmtBytes(d.size)} toplam</span>
                 </div>
               )}
             </div>

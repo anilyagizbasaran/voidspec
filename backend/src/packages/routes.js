@@ -1,6 +1,19 @@
 import { host } from '../lib/host.js';
 
-const APT_TIMEOUT = 120000;
+// Zaman aşımı dolunca apt-get SIGTERM ile öldürülüyor. 120 sn'lik eski değer
+// büyük bir `upgrade`'i dpkg'nin ortasında kesiyor ve paket sistemini
+// "dpkg was interrupted" durumunda bırakıyordu. Süre bilerek uzun; nginx'in
+// /api/packages/ proxy zaman aşımı da buna göre ayarlı.
+const APT_TIMEOUT = 30 * 60 * 1000;
+
+// Etkileşimsiz çalışma için: başka bir apt/unattended-upgrades kilidi
+// tutuyorsa hemen hata vermek yerine bekle; conffile sorularında mevcut
+// dosyayı koru (aksi halde soru stdin'de asılı kalıp zaman aşımına düşüyordu).
+const APT_OPTS = [
+  '-o', 'DPkg::Lock::Timeout=120',
+  '-o', 'Dpkg::Options::=--force-confdef',
+  '-o', 'Dpkg::Options::=--force-confold',
+];
 
 function combined({ stdout, stderr }) {
   return [stdout, stderr].filter(Boolean).join('\n').trim();
@@ -73,7 +86,7 @@ export async function packageRoutes(fastify) {
     onRequest: [fastify.authenticate],
     config: { rateLimit: { max: 5, timeWindow: '10 minutes' } },
   }, async (req, reply) => {
-    const res = await host(['apt-get', 'update', '-q'], { timeout: APT_TIMEOUT });
+    const res = await host(['apt-get', ...APT_OPTS, 'update', '-q'], { timeout: APT_TIMEOUT });
     fastify.log.info('apt update ran');
     reply.send({ ok: res.ok, output: combined(res).slice(-2000) });
   });
@@ -86,7 +99,7 @@ export async function packageRoutes(fastify) {
     const { name } = req.body || {};
     try { validatePkg(name); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
 
-    const res = await host(['apt-get', 'install', '-y', name], { timeout: APT_TIMEOUT });
+    const res = await host(['apt-get', ...APT_OPTS, 'install', '-y', name], { timeout: APT_TIMEOUT });
     if (!res.ok) {
       return reply.code(500).send({ error: 'Install failed', output: combined(res).slice(-2000) });
     }
@@ -107,7 +120,7 @@ export async function packageRoutes(fastify) {
       return reply.code(403).send({ error: `Package "${name}" is protected and cannot be removed` });
     }
 
-    const args = ['apt-get', 'remove'];
+    const args = ['apt-get', ...APT_OPTS, 'remove'];
     if (purge === 'true') args.push('--purge');
     args.push('-y', name);
 
@@ -129,9 +142,9 @@ export async function packageRoutes(fastify) {
     let args;
     if (name) {
       try { validatePkg(name); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
-      args = ['apt-get', 'install', '--only-upgrade', '-y', name];
+      args = ['apt-get', ...APT_OPTS, 'install', '--only-upgrade', '-y', name];
     } else {
-      args = ['apt-get', 'upgrade', '-y'];
+      args = ['apt-get', ...APT_OPTS, 'upgrade', '-y'];
     }
 
     const res = await host(args, { timeout: APT_TIMEOUT });

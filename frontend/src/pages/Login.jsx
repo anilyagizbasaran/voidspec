@@ -23,7 +23,7 @@ export default function Login() {
       setUser(me.data);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Authentication failed');
+      setError(err.response?.data?.error || 'Kullanıcı adı ya da parola yanlış.');
     } finally {
       setLoading(false);
     }
@@ -32,46 +32,37 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-panel-bg flex items-center justify-center relative overflow-hidden">
 
-      {/* Dot grid background */}
-      <div className="absolute inset-0 bg-dot-grid opacity-40 pointer-events-none" />
-
-      {/* Radial glow center */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(88,166,255,0.06) 0%, transparent 70%)',
-        }}
-      />
+      {/* Rack-ruler backdrop — the tick marks of a server rail, not a decorative grid */}
+      <div className="absolute inset-0 bg-rack-ruler opacity-50 pointer-events-none" />
 
       {/* Card */}
       <div className="relative w-full max-w-sm mx-4 animate-fade-up">
 
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-panel-surface border border-panel-border mb-4"
-            style={{ boxShadow: '0 0 24px rgba(88,166,255,0.15), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-            <Cpu size={24} className="text-panel-accent" />
+        {/* Nameplate */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-md border border-panel-border-light bg-panel-surface flex items-center justify-center shrink-0">
+            <Cpu size={18} className="text-panel-accent" />
           </div>
-          <h1 className="text-xl font-bold text-panel-text tracking-tight">ServerPanel</h1>
-          <p className="text-panel-muted text-xs mt-1">Ubuntu Server Management</p>
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold text-panel-text truncate">ServerPanel</h1>
+            <p className="text-panel-muted text-xs truncate">Ubuntu sunucu yönetimi</p>
+          </div>
+          <span className="led led-ok ml-auto shrink-0" title="Sunucu ayakta" />
         </div>
 
-        {/* Form card */}
-        <div
-          className="card-gradient-border bg-panel-surface rounded-2xl p-6"
-          style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.04) inset' }}
-        >
+        {/* Form panel */}
+        <div className="bg-panel-surface border border-panel-border rounded-md p-6">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
             {/* Username */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] text-panel-muted uppercase tracking-wider font-medium">Username</label>
+              <label className="text-[13px] text-panel-muted font-medium">Kullanıcı adı</label>
               <input
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                className="w-full bg-panel-bg border border-panel-border rounded-lg px-3 py-2.5 text-sm text-panel-text placeholder-panel-muted/40
-                  focus:outline-none focus:border-panel-accent focus:ring-1 focus:ring-panel-accent/20 transition-all"
+                className="w-full bg-panel-bg border border-panel-border rounded px-3 py-2.5 text-sm font-mono text-panel-text placeholder-panel-muted/40
+                  focus:outline-none focus:border-panel-accent focus:ring-1 focus:ring-panel-accent/20 transition-colors"
                 placeholder="admin"
                 autoFocus
                 autoComplete="username"
@@ -80,14 +71,14 @@ export default function Login() {
 
             {/* Password */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] text-panel-muted uppercase tracking-wider font-medium">Password</label>
+              <label className="text-[13px] text-panel-muted font-medium">Parola</label>
               <div className="relative">
                 <input
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full bg-panel-bg border border-panel-border rounded-lg px-3 py-2.5 pr-9 text-sm text-panel-text placeholder-panel-muted/40
-                    focus:outline-none focus:border-panel-accent focus:ring-1 focus:ring-panel-accent/20 transition-all"
+                  className="w-full bg-panel-bg border border-panel-border rounded px-3 py-2.5 pr-9 text-sm font-mono text-panel-text placeholder-panel-muted/40
+                    focus:outline-none focus:border-panel-accent focus:ring-1 focus:ring-panel-accent/20 transition-colors"
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
@@ -104,7 +95,7 @@ export default function Login() {
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 bg-panel-red/10 border border-panel-red/25 rounded-lg px-3 py-2.5">
+              <div className="flex items-center gap-2 bg-panel-red/10 border border-panel-red/25 rounded px-3 py-2.5">
                 <AlertCircle size={13} className="text-panel-red shrink-0" />
                 <span className="text-panel-red text-xs">{error}</span>
               </div>
@@ -114,24 +105,23 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading || !username || !password}
-              className="w-full flex items-center justify-center gap-2 bg-panel-accent text-white rounded-lg px-4 py-2.5 text-sm font-semibold
-                hover:bg-blue-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 mt-1"
-              style={{ boxShadow: '0 1px 8px rgba(88,166,255,0.3)' }}
+              className="w-full flex items-center justify-center gap-2 bg-panel-accent text-panel-bg rounded px-4 py-2.5 text-[15px] font-semibold
+                hover:bg-panel-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150 mt-1"
             >
               <Lock size={13} />
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Authenticating…
+                  <span className="w-3.5 h-3.5 border-2 border-panel-bg/30 border-t-panel-bg rounded-full animate-spin" />
+                  Doğrulanıyor…
                 </span>
-              ) : 'Sign In'}
+              ) : 'Giriş yap'}
             </button>
           </form>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-panel-muted text-[11px] mt-5">
-          Secure access · Session expires in 24h
+        <p className="text-center text-panel-muted text-xs mt-5">
+          Oturum 24 saat açık kalır.
         </p>
       </div>
     </div>

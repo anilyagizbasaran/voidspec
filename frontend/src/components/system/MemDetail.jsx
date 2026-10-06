@@ -44,10 +44,10 @@ export default function MemDetail({ stats }) {
   if (!mem) return null;
 
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-lg p-4">
+    <div className="bg-panel-surface border border-panel-border rounded-md p-4">
       <div className="flex items-center gap-2 mb-4">
         <MemoryStick size={13} className="text-panel-muted" />
-        <span className="text-panel-muted text-xs uppercase tracking-wider">Memory Detail</span>
+        <span className="text-panel-muted text-sm font-medium">Bellek ayrıntısı</span>
         <span className="ml-auto text-xs text-panel-muted font-mono">{formatBytes(mem.total)}</span>
       </div>
 

@@ -18,17 +18,17 @@ export function useTerminal(containerRef, tabId) {
 
     const term = new Terminal({
       theme: {
-        background: '#0d1117',
-        foreground: '#e6edf3',
-        cursor: '#58a6ff',
+        background: '#1b2229',
+        foreground: '#e4e8eb',
+        cursor: '#d8cfbd',
         selectionBackground: '#264f78',
-        black: '#484f58',
-        red: '#f85149',
-        green: '#3fb950',
-        yellow: '#d29922',
-        blue: '#58a6ff',
+        black: '#5a6672',
+        red: '#ef5a50',
+        green: '#3fcf6b',
+        yellow: '#eea53b',
+        blue: '#d8cfbd',
         magenta: '#bc8cff',
-        cyan: '#39c5cf',
+        cyan: '#63bfd8',
         white: '#b1bac4',
         brightBlack: '#6e7681',
         brightRed: '#ff7b72',
@@ -37,7 +37,7 @@ export function useTerminal(containerRef, tabId) {
         brightBlue: '#79c0ff',
         brightMagenta: '#d2a8ff',
         brightCyan: '#56d4dd',
-        brightWhite: '#f0f6fc',
+        brightWhite: '#e4e8eb',
       },
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
       fontSize: isMobile ? 14 : 13,
@@ -61,6 +61,9 @@ export function useTerminal(containerRef, tabId) {
     let destroyed = false;
     let reconnectAttempts = 0;
     let reconnectTimer = null;
+    // Oturum başka bir bağlantıya (ör. çoğaltılmış sekme) devredildi: geri
+    // almaya çalışırsak iki sekme birbirini sonsuza kadar düşürür.
+    let detached = false;
 
     function connect() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -79,6 +82,9 @@ export function useTerminal(containerRef, tabId) {
           reconnectAttempts = 0;
         } else if (msg.type === 'data') {
           term.write(msg.data, () => term.scrollToBottom());
+        } else if (msg.type === 'detached') {
+          detached = true;
+          term.write('\r\n\x1b[33m[Bu oturum başka bir sekmede açıldı. Yeniden bağlanmak için sayfayı yenileyin.]\x1b[0m\r\n');
         } else if (msg.type === 'exit') {
           term.write('\r\n[session ended]\r\n');
           sessionStorage.removeItem(SESSION_KEY(tabId));
@@ -91,7 +97,7 @@ export function useTerminal(containerRef, tabId) {
       };
 
       ws.onclose = () => {
-        if (destroyed) return;
+        if (destroyed || detached) return;
         if (reconnectAttempts >= 5) {
           term.write('\r\n\x1b[31m[Connection lost. Refresh to reconnect.]\x1b[0m\r\n');
           return;

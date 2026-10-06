@@ -19,9 +19,9 @@ const WidgetFirewall = React.memo(function WidgetFirewall() {
   return (
     <StatusCard
       icon={Shield}
-      label="Firewall"
-      value={active == null ? 'Checking…' : active ? 'Enabled' : 'Disabled'}
-      sub={active ? `${fw?.rules?.length ?? 0} rules active` : 'No protection'}
+      label="Güvenlik duvarı"
+      value={active == null ? 'Kontrol ediliyor…' : active ? 'Açık' : 'Kapalı'}
+      sub={active ? `${fw?.rules?.length ?? 0} kural etkin` : 'Sunucu korumasız'}
       status={active ? 'ok' : active === false ? 'err' : 'off'}
       onClick={() => setActiveTab('firewall')}
     />

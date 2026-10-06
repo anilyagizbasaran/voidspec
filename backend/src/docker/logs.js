@@ -30,6 +30,15 @@ export async function dockerLogsWs(fastify) {
 
     const containerId = req.params.id;
     let stream = null;
+    let closed = false;
+
+    // Kapanma dinleyicisi en başta kurulmalı: eskiden await'lerden sonra
+    // ekleniyordu ve kullanıcı log ekranı açılırken ayrılırsa follow akışı
+    // hiç kapatılmadan sonsuza kadar açık kalıyordu.
+    socket.on('close', () => {
+      closed = true;
+      try { stream?.destroy(); } catch { /* zaten kapalı */ }
+    });
 
     try {
       const container = docker.getContainer(containerId);
@@ -45,7 +54,12 @@ export async function dockerLogsWs(fastify) {
       }));
 
       // Sonra canlı akış
+      if (closed) return;
       stream = await container.logs({ stdout: true, stderr: true, follow: true, tail: 0, timestamps: true });
+      if (closed) {
+        stream.destroy();
+        return;
+      }
 
       const send = (text) => {
         if (socket.readyState === 1 && text) socket.send(JSON.stringify({ type: 'log', data: text }));
@@ -67,9 +81,5 @@ export async function dockerLogsWs(fastify) {
       try { socket.send(JSON.stringify({ type: 'error', data: err.message })); } catch { /* kapalı */ }
       socket.close();
     }
-
-    socket.on('close', () => {
-      try { stream?.destroy(); } catch { /* zaten kapalı */ }
-    });
   });
 }

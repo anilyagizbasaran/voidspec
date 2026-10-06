@@ -18,10 +18,10 @@ const WidgetDisk = React.memo(function WidgetDisk() {
       percent={disk?.percent}
       primary={disk ? `${disk.percent?.toFixed(1)}%` : '—'}
       secondary={disk ? `${fmtBytes(disk.used)} / ${fmtBytes(disk.size)}` : ''}
-      accent="text-panel-accent"
+      accent="text-panel-text"
       onClick={() => setActiveTab('files')}
       sparkData={history}
-      sparkColor="#58a6ff"
+      sparkColor="#d8cfbd"
       trend={trend}
     />
   );

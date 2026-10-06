@@ -69,7 +69,7 @@ export default function TerminalPanel() {
             >
               {tab.title}
               {isRight && (
-                <span className="text-[9px] text-panel-muted bg-panel-hover px-1 rounded leading-4">R</span>
+                <span className="text-[10px] text-panel-muted bg-panel-hover px-1 rounded leading-4">R</span>
               )}
               {splitMode && !isRight && (
                 <button
@@ -148,7 +148,7 @@ export default function TerminalPanel() {
 
       {showPaste && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-panel-surface border border-panel-border rounded-lg p-4 w-full max-w-sm flex flex-col gap-3">
+          <div className="bg-panel-surface border border-panel-border rounded-md p-4 w-full max-w-sm flex flex-col gap-3">
             <p className="text-panel-text text-xs">Metni buraya yapıştırın (Ctrl+V) ve Gönder'e basın:</p>
             <textarea
               ref={pasteAreaRef}

@@ -44,3 +44,10 @@ test('parseLine ham satırı olduğu gibi saklar (eşzamanlılık kontrolü içi
   const raw = '  0 3 * * * /usr/bin/backup.sh  ';
   assert.equal(parseLine(raw, 'root', 0).raw, raw);
 });
+
+test('crontabLinesFromResult: okuma hatasında boş liste yerine fırlatır', async () => {
+  const { crontabLinesFromResult } = await import('../src/cron/routes.js');
+  assert.deepEqual(crontabLinesFromResult({ ok: true, stdout: 'a\nb', stderr: '' }), ['a', 'b']);
+  assert.deepEqual(crontabLinesFromResult({ ok: false, stdout: '', stderr: 'no crontab for root' }), []);
+  assert.throws(() => crontabLinesFromResult({ ok: false, stdout: '', stderr: 'nsenter: timed out' }), /okunamadı/);
+});

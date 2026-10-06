@@ -66,7 +66,7 @@ export default function ToastHost() {
           <div
             key={id}
             role="status"
-            className={`flex items-start gap-2.5 bg-panel-surface border ${cls} rounded-lg px-3 py-2.5 shadow-lg animate-[fadeSlideIn_0.12s_ease-out]`}
+            className={`flex items-start gap-2.5 bg-panel-surface border ${cls} rounded px-3 py-2.5 shadow-lg animate-[fadeSlideIn_0.12s_ease-out]`}
           >
             <Icon size={14} className="shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">

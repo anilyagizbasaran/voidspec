@@ -11,10 +11,10 @@ function formatBytes(bytes, decimals = 1) {
 
 function StatCard({ icon: Icon, label, value, sub, percent, color = 'text-panel-accent' }) {
   return (
-    <div className="bg-panel-surface border border-panel-border rounded-lg p-3 sm:p-4">
+    <div className="bg-panel-surface border border-panel-border rounded-md p-3 sm:p-4">
       <div className="flex items-center gap-2 mb-2 sm:mb-3">
         <Icon size={13} className="text-panel-muted shrink-0" />
-        <span className="text-panel-muted text-xs uppercase tracking-wider truncate">{label}</span>
+        <span className="text-panel-muted text-[13px] font-medium truncate">{label}</span>
       </div>
       <div className={`text-xl sm:text-2xl font-semibold mb-1 ${color}`}>{value}</div>
       {sub && <div className="text-panel-muted text-xs truncate">{sub}</div>}
@@ -37,7 +37,7 @@ export default function StatsGrid({ stats }) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[1, 2, 3, 4].map(i => (
-          <div key={i} className="bg-panel-surface border border-panel-border rounded-lg p-4 animate-pulse h-24" />
+          <div key={i} className="bg-panel-surface border border-panel-border rounded-md p-4 animate-pulse h-24" />
         ))}
       </div>
     );
@@ -52,7 +52,7 @@ export default function StatsGrid({ stats }) {
         icon={Cpu}
         label="CPU"
         value={`${stats.cpu.load}%`}
-        sub={`${stats.cpu.cores} cores · avg ${stats.cpu.loadAvg?.[0]?.toFixed(2) ?? stats.loadAvg?.[0]?.toFixed(2) ?? '—'}`}
+        sub={`${stats.cpu.cores} çekirdek, yük ${stats.cpu.loadAvg?.[0]?.toFixed(2) ?? stats.loadAvg?.[0]?.toFixed(2) ?? '—'}`}
         percent={stats.cpu.load}
         color={stats.cpu.load > 80 ? 'text-panel-red' : 'text-panel-green'}
       />
