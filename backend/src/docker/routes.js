@@ -36,12 +36,21 @@ function formatContainer(c, selfProject) {
   };
 }
 
+// Docker API container'ı ID, ID öneki ya da adla kabul ediyor; koruma da üçünü
+// tanımalı. Eskiden yalnızca ID'ye bakılıyordu ve `serverpanel-backend` adıyla
+// gelen durdur/sil isteği korumayı atlıyordu.
+export function findContainer(containers, ref) {
+  return containers.find(c =>
+    c.Id === ref || c.Id.startsWith(ref) || c.Names?.includes(`/${ref}`),
+  );
+}
+
 async function assertNotSelf(id) {
   const containers = await docker.listContainers({ all: true });
   const selfProject = selfProjectOf(containers);
-  const target = containers.find(c => c.Id === id || c.Id.startsWith(id));
+  const target = findContainer(containers, id);
   if (selfProject && target?.Labels?.[PROJECT_LABEL] === selfProject) {
-    throw new GroupError(409, 'Panelin kendi container\'ı panelden durdurulamaz veya silinemez');
+    throw new GroupError(409, 'The panel\'s own container cannot be stopped or removed from the panel');
   }
 }
 

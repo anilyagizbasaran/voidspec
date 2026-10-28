@@ -121,7 +121,7 @@ async function writeRootCrontab(lines) {
 export function crontabLinesFromResult({ ok, stdout, stderr }) {
   if (ok) return stdout.split('\n');
   if (/no crontab for/i.test(stderr)) return [];
-  const err = new Error(`crontab okunamadı: ${stderr || 'bilinmeyen hata'}`);
+  const err = new Error(`could not read crontab: ${stderr || 'unknown error'}`);
   err.statusCode = 503;
   throw err;
 }
@@ -181,7 +181,7 @@ export async function cronRoutes(fastify) {
       return reply.code(404).send({ error: 'Job not found' });
     }
     if (staleLine(lines, idx, expectedRaw)) {
-      return reply.code(409).send({ error: 'Crontab bu arada değişti — listeyi yenileyip tekrar deneyin' });
+      return reply.code(409).send({ error: 'The crontab changed in the meantime — refresh the list and try again' });
     }
 
     // Build new line — preserve existing format if only toggling enabled
@@ -222,7 +222,7 @@ export async function cronRoutes(fastify) {
       return reply.code(404).send({ error: 'Job not found' });
     }
     if (staleLine(lines, idx, req.query.expectedRaw)) {
-      return reply.code(409).send({ error: 'Crontab bu arada değişti — listeyi yenileyip tekrar deneyin' });
+      return reply.code(409).send({ error: 'The crontab changed in the meantime — refresh the list and try again' });
     }
 
     lines.splice(idx, 1);

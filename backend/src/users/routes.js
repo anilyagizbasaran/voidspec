@@ -7,6 +7,16 @@ export function validateUsername(name) {
     throw { code: 400, message: 'Invalid username (lowercase letters, digits, dash, underscore; max 32 chars)' };
 }
 
+// chpasswd stdin'den `kullanıcı:parola` satırları okuyor. Parolada satır sonu
+// olursa ikinci satır başka bir kullanıcının (root dahil) parolasını
+// değiştiriyordu.
+export function validatePassword(password) {
+  if (typeof password !== 'string' || password.length < 8)
+    throw { code: 400, message: 'Password must be at least 8 characters' };
+  if (/[\r\n\0]/.test(password))
+    throw { code: 400, message: 'Password cannot contain line breaks' };
+}
+
 // Kullanıcı başına 3 host komutu çalışıyor; hepsini aynı anda başlatmak büyük
 // makinelerde yüzlerce süreç demek. Aynı anda en fazla LIMIT kadar iş.
 const LIMIT = 8;
@@ -134,8 +144,7 @@ export async function userRoutes(fastify) {
   }, async (req, reply) => {
     const { username, password, shell = '/bin/bash', sudo: wantSudo = false, comment = '' } = req.body || {};
     try { validateUsername(username); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
-    if (!password || password.length < 8)
-      return reply.code(400).send({ error: 'Password must be at least 8 characters' });
+    try { validatePassword(password); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
 
     if (await findUser(username)) return reply.code(409).send({ error: 'Username already exists' });
 
@@ -183,8 +192,7 @@ export async function userRoutes(fastify) {
     const { username } = req.params;
     const { password } = req.body || {};
     try { validateUsername(username); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
-    if (!password || password.length < 8)
-      return reply.code(400).send({ error: 'Password must be at least 8 characters' });
+    try { validatePassword(password); } catch (e) { return reply.code(e.code).send({ error: e.message }); }
 
     if (!await findUser(username)) return reply.code(404).send({ error: 'User not found' });
 
@@ -275,7 +283,7 @@ export async function userRoutes(fastify) {
 export function sshKeysRaw({ ok, stdout, stderr }) {
   if (ok) return stdout;
   if (/No such file or directory/i.test(stderr)) return '';
-  const err = new Error(`authorized_keys okunamadı: ${stderr || 'bilinmeyen hata'}`);
+  const err = new Error(`could not read authorized_keys: ${stderr || 'unknown error'}`);
   err.statusCode = 503;
   throw err;
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateUsername, isValidSSHKey } from '../src/users/routes.js';
+import { validateUsername, validatePassword, isValidSSHKey } from '../src/users/routes.js';
 import { validatePkg } from '../src/packages/routes.js';
 import { validateService } from '../src/services/routes.js';
 import { buildJournalArgs } from '../src/logs/routes.js';
@@ -14,6 +14,15 @@ test('validateUsername kabul edilebilir adlara izin verir', () => {
 test('validateUsername kabuk metakarakterlerini reddeder', () => {
   for (const bad of ['', 'Root', 'a b', 'user;rm -rf /', '$(id)', '`id`', 'a'.repeat(33), '../x']) {
     assert.throws(() => validateUsername(bad), `${bad} reddedilmeli`);
+  }
+});
+
+test('validatePassword kısa parolayı ve satır sonunu reddeder', () => {
+  assert.doesNotThrow(() => validatePassword('uzun-parola:1'));
+  // Regresyon: chpasswd'ye giden "kullanıcı:parola\n" satırına ikinci bir
+  // satır eklenip root'un parolası değiştirilebiliyordu.
+  for (const bad of ['kisa', '', undefined, 12345678, 'parola12\nroot:ele-gecirildi', 'parola12\rx', 'parola12\0x']) {
+    assert.throws(() => validatePassword(bad), JSON.stringify(bad));
   }
 });
 
@@ -65,5 +74,5 @@ test('sshKeysRaw: dosya yoksa boş, diğer hatalarda fırlatır', async () => {
   const { sshKeysRaw } = await import('../src/users/routes.js');
   assert.equal(sshKeysRaw({ ok: true, stdout: 'ssh-ed25519 AAA x', stderr: '' }), 'ssh-ed25519 AAA x');
   assert.equal(sshKeysRaw({ ok: false, stdout: '', stderr: 'cat: /h/.ssh/authorized_keys: No such file or directory' }), '');
-  assert.throws(() => sshKeysRaw({ ok: false, stdout: '', stderr: 'Permission denied' }), /okunamadı/);
+  assert.throws(() => sshKeysRaw({ ok: false, stdout: '', stderr: 'Permission denied' }), /could not read/);
 });

@@ -124,7 +124,7 @@ export async function serviceRoutes(fastify) {
     if (!ok) {
       fastify.log.warn({ name, action, stderr }, 'Service action failed');
       return reply.code(500).send({
-        error: stderr || `systemctl ${action} ${name} başarısız oldu`,
+        error: stderr || `systemctl ${action} ${name} failed`,
         name,
         action,
       });

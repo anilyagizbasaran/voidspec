@@ -67,14 +67,14 @@ export function createGroupStore(file) {
 
   function findGroup(id) {
     const g = state.groups.find(x => x.id === id);
-    if (!g) throw new GroupError(404, 'Grup bulunamadı');
+    if (!g) throw new GroupError(404, 'Group not found');
     return g;
   }
 
   function assertUniqueName(name, exceptId) {
     const lower = name.toLocaleLowerCase('tr');
     if (state.groups.some(g => g.id !== exceptId && g.name.toLocaleLowerCase('tr') === lower)) {
-      throw new GroupError(409, 'Bu adda bir grup zaten var');
+      throw new GroupError(409, 'A group with this name already exists');
     }
   }
 
@@ -93,8 +93,8 @@ export function createGroupStore(file) {
 
     async create(rawName) {
       const name = cleanGroupName(rawName);
-      if (!name) throw new GroupError(400, `Grup adı 1-${MAX_NAME} karakter olmalı`);
-      if (state.groups.length >= MAX_GROUPS) throw new GroupError(400, 'Grup sayısı sınırına ulaşıldı');
+      if (!name) throw new GroupError(400, `Group name must be 1-${MAX_NAME} characters`);
+      if (state.groups.length >= MAX_GROUPS) throw new GroupError(400, 'Group limit reached');
       assertUniqueName(name);
       const group = { id: randomUUID(), name };
       state.groups.push(group);
@@ -105,7 +105,7 @@ export function createGroupStore(file) {
     async rename(id, rawName) {
       const group = findGroup(id);
       const name = cleanGroupName(rawName);
-      if (!name) throw new GroupError(400, `Grup adı 1-${MAX_NAME} karakter olmalı`);
+      if (!name) throw new GroupError(400, `Group name must be 1-${MAX_NAME} characters`);
       assertUniqueName(name, id);
       group.name = name;
       await persist();
@@ -123,7 +123,7 @@ export function createGroupStore(file) {
 
     // groupId null → container varsayılan (compose projesi) grubuna döner.
     async assign(container, groupId) {
-      if (!isContainerName(container)) throw new GroupError(400, 'Geçersiz container adı');
+      if (!isContainerName(container)) throw new GroupError(400, 'Invalid container name');
       if (groupId == null) {
         delete state.assign[container];
       } else {

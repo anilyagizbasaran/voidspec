@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { createGroupStore, cleanGroupName, isContainerName } from '../src/docker/groups.js';
-import { selfProjectOf } from '../src/docker/routes.js';
+import { selfProjectOf, findContainer } from '../src/docker/routes.js';
 
 async function freshStore() {
   const dir = await mkdtemp(join(tmpdir(), 'sp-groups-'));
@@ -84,4 +84,17 @@ test('selfProjectOf hostname ile panelin compose projesini bulur', () => {
   ];
   assert.equal(selfProjectOf(containers, 'bbb111222333'), 'serverpanel');
   assert.equal(selfProjectOf(containers, 'yok'), null);
+});
+
+test('findContainer ID, ID öneki ve adla eşleşir', () => {
+  // Regresyon: yalnızca ID'ye bakılıyordu; panelin kendi container'ı adıyla
+  // durdurulabiliyordu.
+  const containers = [
+    { Id: 'aaa111222333ffff', Names: ['/wordpick-api-1'] },
+    { Id: 'bbb111222333ffff', Names: ['/serverpanel-backend'] },
+  ];
+  assert.equal(findContainer(containers, 'bbb111222333ffff'), containers[1]);
+  assert.equal(findContainer(containers, 'bbb111'), containers[1]);
+  assert.equal(findContainer(containers, 'serverpanel-backend'), containers[1]);
+  assert.equal(findContainer(containers, 'serverpanel'), undefined);
 });

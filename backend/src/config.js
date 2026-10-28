@@ -57,6 +57,13 @@ export const config = {
   terminalReconnectMs: parseIntEnv('TERMINAL_RECONNECT_MS', 20 * 60 * 1000),
 };
 
+// Sırlar config'e alındıktan sonra ortamdan siliniyor. Alt süreçler (terminal,
+// nsenter ile apt/systemctl/crontab, du/tar) ortamı miras alıyor; aksi halde
+// JWT_SECRET her birinin /proc/<pid>/environ'unda ve panel terminalindeki
+// `env` çıktısında görünüyordu.
+delete process.env.JWT_SECRET;
+delete process.env.ADMIN_PASSWORD_HASH;
+
 // ── Fail fast ────────────────────────────────────────────────────────────────
 // Eksik/zayıf secret ile sessizce çalışmak, panelin root yetkisi düşünülünce
 // kabul edilebilir değil: açılışta net hata verip duruyoruz.

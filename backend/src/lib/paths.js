@@ -37,7 +37,7 @@ export function resolveSafePath(input) {
 // Yıkıcı işlemler (sil, taşı, üzerine yaz) için ek kontrol.
 export function assertMutable(p) {
   if (PROTECTED.has(p)) {
-    throw new PathError(`"${p}" korumalı bir sistem yolu — bu işlem engellendi`);
+    throw new PathError(`"${p}" is a protected system path — operation blocked`);
   }
   return p;
 }

@@ -50,3 +50,32 @@ test('isVirtualFsPath yalnızca /proc, /sys, /dev ve altlarını yakalar', async
   for (const p of ['/proc', '/proc/1', '/sys/class', '/dev']) assert.equal(isVirtualFsPath(p), true, p);
   for (const p of ['/', '/process', '/var', '/devices', '/root/proc']) assert.equal(isVirtualFsPath(p), false, p);
 });
+
+test('writeTarget korumalı dizinlerin içine yazmaya izin verir', async () => {
+  // Regresyon: eskiden dizinin kendisi denetleniyordu ve /root, /tmp, /etc
+  // içine hiç dosya yüklenemiyordu.
+  const { writeTarget } = await import('../src/files/routes.js');
+  assert.equal(writeTarget('/root', 'yedek.tar.gz', 'upload'), '/root/yedek.tar.gz');
+  assert.equal(writeTarget('/tmp', 'a.txt', 'upload'), '/tmp/a.txt');
+  assert.equal(writeTarget('/etc/nginx', 'site.conf', 'upload'), '/etc/nginx/site.conf');
+});
+
+test('writeTarget korumalı dosyanın üzerine yazmayı ve dizinden kaçmayı engeller', async () => {
+  const { writeTarget } = await import('../src/files/routes.js');
+  assert.throws(() => writeTarget('/etc', 'passwd', 'upload'), PathError);
+  assert.throws(() => writeTarget('/var', 'log', 'upload'), PathError);
+  assert.equal(writeTarget('/root', '../../etc/passwd', 'upload'), '/root/passwd');
+  assert.equal(writeTarget('/root', '...', 'upload'), '/root/upload');
+  assert.equal(writeTarget('/root', '', 'download'), '/root/download');
+});
+
+test('redirectTarget yalnızca http/https yönlendirmesine izin verir', async () => {
+  // Regresyon: ftp:// yönlendirmesi http.get'i senkron fırlatıyor ve
+  // backend süreci çöküyordu.
+  const { redirectTarget } = await import('../src/files/routes.js');
+  assert.equal(redirectTarget('/b', 'http://ornek.com/a'), 'http://ornek.com/b');
+  assert.equal(redirectTarget('https://cdn.ornek.com/x', 'http://ornek.com/a'), 'https://cdn.ornek.com/x');
+  assert.throws(() => redirectTarget('ftp://ornek.com/x', 'http://ornek.com/a'), /unsupported protocol/);
+  assert.throws(() => redirectTarget('file:///etc/passwd', 'http://ornek.com/a'), /unsupported protocol/);
+  assert.throws(() => redirectTarget('http://[bozuk', 'http://ornek.com/a'), /Invalid redirect/);
+});

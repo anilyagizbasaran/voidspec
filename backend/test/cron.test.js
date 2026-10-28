@@ -49,5 +49,5 @@ test('crontabLinesFromResult: okuma hatasında boş liste yerine fırlatır', as
   const { crontabLinesFromResult } = await import('../src/cron/routes.js');
   assert.deepEqual(crontabLinesFromResult({ ok: true, stdout: 'a\nb', stderr: '' }), ['a', 'b']);
   assert.deepEqual(crontabLinesFromResult({ ok: false, stdout: '', stderr: 'no crontab for root' }), []);
-  assert.throws(() => crontabLinesFromResult({ ok: false, stdout: '', stderr: 'nsenter: timed out' }), /okunamadı/);
+  assert.throws(() => crontabLinesFromResult({ ok: false, stdout: '', stderr: 'nsenter: timed out' }), /could not read/);
 });

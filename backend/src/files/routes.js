@@ -23,6 +23,30 @@ async function hostPath(input, { followLast = true, mutable = false } = {}) {
   return real;
 }
 
+// Yüklenen/indirilen dosyanın yazılacağı yol. Dosya adı istemci kontrolünde:
+// '../' ile hedef dizinin dışına yazılması engelleniyor. Koruma kontrolü
+// dizine değil yazılacak dosyaya yapılıyor — eskiden dizin denetlendiği için
+// /root, /tmp, /etc gibi dizinlerin İÇİNE hiç dosya yüklenemiyordu.
+// /etc/passwd gibi korumalı dosyaların üzerine yazmak engelli kalıyor.
+export function writeTarget(dir, rawName, fallback) {
+  const safeName = path.basename(rawName || '').replace(/^\.+/, '') || fallback;
+  return assertMutable(assertInside(dir, path.join(dir, safeName)));
+}
+
+// Yönlendirme adresini çözer; yalnızca http/https'e izin verir. http.get
+// desteklemediği protokolde (ftp:, file:) senkron fırlatıyor; yanıt
+// callback'i içinde olduğumuz için hata promise'e değil sürece düşüyor ve
+// backend çöküyordu.
+export function redirectTarget(location, base) {
+  let next;
+  try { next = new URL(location, base); }
+  catch { throw new Error('Invalid redirect location'); }
+  if (next.protocol !== 'http:' && next.protocol !== 'https:') {
+    throw new Error(`Redirect to unsupported protocol (${next.protocol})`);
+  }
+  return next.toString();
+}
+
 // `du -sb` yardımcısı: timeout'ta süreci gerçekten öldürür ve yanlış "0"
 // sonucu döndürmek yerine null döner.
 function duSize(target, timeoutMs = 15000) {
@@ -260,7 +284,7 @@ export async function fileRoutes(fastify) {
     // gelirse dosyalar sessizce /tmp'ye düşüyordu).
     let targetDir = null;
     if (req.query.path) {
-      try { targetDir = await hostPath(req.query.path, { mutable: true }); }
+      try { targetDir = await hostPath(req.query.path); }
       catch (err) { return sendPathError(reply, err); }
     }
 
@@ -269,19 +293,18 @@ export async function fileRoutes(fastify) {
     try {
       for await (const part of req.parts()) {
         if (part.type === 'field' && part.fieldname === 'path') {
-          if (!targetDir) targetDir = await hostPath(part.value, { mutable: true });
+          if (!targetDir) targetDir = await hostPath(part.value);
         } else if (part.type === 'file') {
           if (!targetDir) {
             // Dosyayı tüketmezsek istek asılı kalır.
             part.file.resume();
             throw new PathError('Upload target path missing (send ?path= or the path field first)');
           }
-          // filename istemci kontrolünde: '../' ile hedef dizinin dışına
-          // yazılmasını engelliyoruz.
-          const safeName = path.basename(part.filename || '').replace(/^\.+/, '') || 'upload';
-          const destPath = assertInside(targetDir, path.join(targetDir, safeName));
+          let destPath;
+          try { destPath = writeTarget(targetDir, part.filename, 'upload'); }
+          catch (err) { part.file.resume(); throw err; }
           await pipeline(part.file, createWriteStream(toFs(destPath)));
-          uploaded.push(safeName);
+          uploaded.push(path.basename(destPath));
         }
       }
     } catch (err) {
@@ -294,14 +317,14 @@ export async function fileRoutes(fastify) {
   // Smart disk overview — groups paths into meaningful categories
   fastify.get('/api/files/smart-overview', { onRequest: [fastify.authenticate] }, async (req, reply) => {
     const CATEGORIES = [
-      { id: 'system',   label: 'Sistem',            paths: ['/usr', '/lib', '/lib64', '/lib32', '/bin', '/sbin', '/boot'] },
-      { id: 'apps',     label: 'Uygulamalar',        paths: ['/opt', '/snap', '/var/cache/apt', '/var/lib/dpkg', '/var/lib/apt'] },
-      { id: 'docker',   label: 'Docker',             paths: ['/var/lib/docker'] },
-      { id: 'userdata', label: 'Kullanıcı Verileri', paths: ['/home', '/root'] },
-      { id: 'web',      label: 'Web & Servisler',    paths: ['/var/www', '/srv'] },
-      { id: 'logs',     label: 'Loglar',             paths: ['/var/log'] },
-      { id: 'config',   label: 'Yapılandırma',       paths: ['/etc'] },
-      { id: 'temp',     label: 'Geçici Dosyalar',    paths: ['/tmp', '/var/tmp'] },
+      { id: 'system',   label: 'System',            paths: ['/usr', '/lib', '/lib64', '/lib32', '/bin', '/sbin', '/boot'] },
+      { id: 'apps',     label: 'Applications',      paths: ['/opt', '/snap', '/var/cache/apt', '/var/lib/dpkg', '/var/lib/apt'] },
+      { id: 'docker',   label: 'Docker',            paths: ['/var/lib/docker'] },
+      { id: 'userdata', label: 'User data',         paths: ['/home', '/root'] },
+      { id: 'web',      label: 'Web & services',    paths: ['/var/www', '/srv'] },
+      { id: 'logs',     label: 'Logs',              paths: ['/var/log'] },
+      { id: 'config',   label: 'Configuration',     paths: ['/etc'] },
+      { id: 'temp',     label: 'Temporary files',   paths: ['/tmp', '/var/tmp'] },
     ];
 
     const fresh = req.query.refresh === '1';
@@ -407,10 +430,9 @@ export async function fileRoutes(fastify) {
 
     let destPath;
     try {
-      const safeDest = await hostPath(destDir, { mutable: true });
-      const rawName = filename || decodeURIComponent(parsed.pathname.split('/').pop() || '') || 'download';
-      const safeName = path.basename(rawName).replace(/^\.+/, '') || 'download';
-      destPath = assertInside(safeDest, path.join(safeDest, safeName));
+      const safeDest = await hostPath(destDir);
+      const rawName = filename || decodeURIComponent(parsed.pathname.split('/').pop() || '');
+      destPath = writeTarget(safeDest, rawName, 'download');
     } catch (err) { return sendPathError(reply, err); }
 
     try {
@@ -422,7 +444,10 @@ export async function fileRoutes(fastify) {
             if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
               res.resume();
               if (++redirects > 5) return reject(new Error('Too many redirects'));
-              return doRequest(new URL(res.headers.location, targetUrl).toString());
+              let next;
+              try { next = redirectTarget(res.headers.location, targetUrl); }
+              catch (err) { return reject(err); }
+              return doRequest(next);
             }
             if (res.statusCode !== 200) {
               res.resume();
