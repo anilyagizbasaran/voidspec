@@ -13,7 +13,7 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    console.error('[ServerPanel] render hatası:', error, info);
+    console.error('[ServerPanel] render error:', error, info);
   }
 
   componentDidUpdate(prevProps) {
@@ -31,7 +31,7 @@ export default class ErrorBoundary extends React.Component {
         <div className="max-w-md w-full bg-panel-surface border border-panel-red/30 rounded-md p-5 flex flex-col gap-3">
           <div className="flex items-center gap-2 text-panel-red">
             <AlertTriangle size={16} />
-            <h2 className="text-sm font-semibold">Bu panel yüklenemedi</h2>
+            <h2 className="text-sm font-semibold">This panel failed to load</h2>
           </div>
           <p className="text-xs text-panel-muted break-words font-mono">
             {this.state.error?.message || String(this.state.error)}
@@ -40,7 +40,7 @@ export default class ErrorBoundary extends React.Component {
             onClick={() => this.setState({ error: null })}
             className="self-start flex items-center gap-1.5 text-xs bg-panel-accent/15 text-panel-accent px-3 py-1.5 rounded hover:bg-panel-accent/25"
           >
-            <RotateCcw size={12} /> Tekrar dene
+            <RotateCcw size={12} /> Try again
           </button>
         </div>
       </div>

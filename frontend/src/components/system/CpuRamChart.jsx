@@ -20,7 +20,7 @@ export default function CpuRamChart({ stats }) {
 
   return (
     <div className="bg-panel-surface border border-panel-border rounded-md p-4">
-      <h3 className="text-panel-muted text-sm font-medium mb-4">CPU ve RAM, son 60 ölçüm</h3>
+      <h3 className="text-panel-muted text-sm font-medium mb-4">CPU & RAM, last 60 samples</h3>
       <ResponsiveContainer width="100%" height={180}>
         <AreaChart data={history} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
           <defs>

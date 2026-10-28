@@ -6,7 +6,7 @@ import ToastHost, { toast } from './components/ui/Toast.jsx';
 import './index.css';
 
 function describeError(error) {
-  return error?.response?.data?.error || error?.message || 'Bilinmeyen hata';
+  return error?.response?.data?.error || error?.message || 'Unknown error';
 }
 
 // 401'de api/client.js zaten /login'e yönlendiriyor; ayrıca bildirim göstermeyelim.
@@ -20,13 +20,13 @@ const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error) => {
       if (isAuthError(error)) return;
-      toast.error(describeError(error), 'Veri alınamadı');
+      toast.error(describeError(error), 'Could not load data');
     },
   }),
   mutationCache: new MutationCache({
     onError: (error) => {
       if (isAuthError(error)) return;
-      toast.error(describeError(error), 'İşlem başarısız');
+      toast.error(describeError(error), 'Action failed');
     },
   }),
 });

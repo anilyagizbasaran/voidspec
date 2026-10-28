@@ -24,12 +24,14 @@ export default function Dashboard() {
   const content = <Component />;
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    // h-dvh: mobil tarayıcıda 100vh adres çubuğunu da sayıyor ve alt çubuk
+    // ekranın dışına taşıyordu.
+    <div className="flex h-dvh overflow-hidden">
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0">
         <TopBar />
-        {/* pb-14 on mobile to avoid content hiding behind bottom nav */}
-        <main className="flex-1 min-h-0 overflow-hidden pb-14 md:pb-0">
+        {/* Mobilde alt gezinme çubuğu (3.5rem) + iPhone ana ekran çizgisi kadar boşluk */}
+        <main className="flex-1 min-h-0 overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
           <ErrorBoundary resetKey={panel.id}>
             <Suspense fallback={<PanelFallback />}>
               {wrapperClass ? <div className={wrapperClass}>{content}</div> : content}

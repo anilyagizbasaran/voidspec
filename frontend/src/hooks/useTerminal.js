@@ -84,7 +84,7 @@ export function useTerminal(containerRef, tabId) {
           term.write(msg.data, () => term.scrollToBottom());
         } else if (msg.type === 'detached') {
           detached = true;
-          term.write('\r\n\x1b[33m[Bu oturum başka bir sekmede açıldı. Yeniden bağlanmak için sayfayı yenileyin.]\x1b[0m\r\n');
+          term.write('\r\n\x1b[33m[This session was opened in another tab. Reload the page to reconnect.]\x1b[0m\r\n');
         } else if (msg.type === 'exit') {
           term.write('\r\n[session ended]\r\n');
           sessionStorage.removeItem(SESSION_KEY(tabId));
@@ -113,18 +113,12 @@ export function useTerminal(containerRef, tabId) {
 
     connect();
 
+    // Hata ayıklama satırları terminalin içine yazılıyordu: her kopyalamada ve
+    // seçimsiz her Ctrl+C'de çıktının arasına [DEBUG ...] satırı giriyordu.
     function copyToClipboard(text) {
-      const hasApi = !!(navigator.clipboard?.writeText);
-      const secure = window.isSecureContext;
-      if (hasApi && secure) {
-        navigator.clipboard.writeText(text)
-          .then(() => term.write(`\r\n\x1b[36m[DEBUG copy: path=clipboard-api ok len=${text.length}]\x1b[0m\r\n`))
-          .catch((err) => {
-            term.write(`\r\n\x1b[31m[DEBUG copy: path=clipboard-api FAILED (${err.message}) -> fallback]\x1b[0m\r\n`);
-            fallbackCopy(text);
-          });
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
       } else {
-        term.write(`\r\n\x1b[36m[DEBUG copy: hasApi=${hasApi} secure=${secure} -> fallback]\x1b[0m\r\n`);
         fallbackCopy(text);
       }
     }
@@ -137,15 +131,9 @@ export function useTerminal(containerRef, tabId) {
       document.body.appendChild(ta);
       ta.focus();
       ta.select();
-      let ok = false;
-      let err = null;
-      try {
-        ok = document.execCommand('copy');
-      } catch (e) {
-        err = e.message;
-      }
+      try { document.execCommand('copy'); } catch { /* kopyalanamadı */ }
       document.body.removeChild(ta);
-      term.write(`\r\n\x1b[36m[DEBUG copy: path=execCommand ok=${ok} err=${err} len=${text.length}]\x1b[0m\r\n`);
+      term.focus();
     }
 
     term.attachCustomKeyEventHandler((e) => {
@@ -156,7 +144,6 @@ export function useTerminal(containerRef, tabId) {
           copyToClipboard(term.getSelection());
           return false;
         }
-        term.write(`\r\n\x1b[33m[DEBUG: ctrl+c pressed but hasSelection()=false]\x1b[0m\r\n`);
         return true;
       }
 

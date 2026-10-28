@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom';
 import client from '../../api/client.js';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
-import { tr } from 'date-fns/locale';
 import { netTotals } from '../../utils/net.js';
 
 /* ── Metric definitions ── */
@@ -117,8 +116,8 @@ function MetricConfig({ config, onConfigChange, onClose }) {
   return (
     <div className="absolute top-full right-0 mt-2 w-52 bg-panel-surface border border-panel-border rounded-md shadow-xl z-[200] overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-panel-border">
-        <span className="text-[13px] font-medium text-panel-muted">Metrikler</span>
-        <span className="text-[11px] text-panel-muted/40">Sıralamak için sürükle</span>
+        <span className="text-[13px] font-medium text-panel-muted">Metrics</span>
+        <span className="text-[11px] text-panel-muted/40">Drag to reorder</span>
       </div>
 
       <div className="p-2 flex flex-col gap-0.5">
@@ -197,7 +196,7 @@ export default function TopBar() {
   }
 
   const uptimeStr = stats?.uptime
-    ? formatDistanceToNow(new Date(Date.now() - stats.uptime * 1000), { addSuffix: false, locale: tr })
+    ? formatDistanceToNow(new Date(Date.now() - stats.uptime * 1000), { addSuffix: false })
     : null;
 
   /* Render pills in order, only visible ones */
@@ -226,7 +225,7 @@ export default function TopBar() {
       {/* Uptime */}
       {uptimeStr && (
         <span className="hidden lg:block text-panel-muted text-xs shrink-0">
-          <span className="text-panel-text">{uptimeStr}</span> açık
+          up <span className="text-panel-text">{uptimeStr}</span>
         </span>
       )}
 
@@ -261,7 +260,7 @@ export default function TopBar() {
         <div className="relative" ref={configRef}>
           <button
             onClick={() => setShowConfig(p => !p)}
-            title="Metrikleri özelleştir"
+            title="Customize metrics"
             className={`flex items-center justify-center w-7 h-7 rounded transition-all
               ${showConfig
                 ? 'bg-panel-accent/15 text-panel-accent'
@@ -285,7 +284,7 @@ export default function TopBar() {
         <div className="hidden sm:flex items-center gap-1.5">
           <div className="w-6 h-6 rounded-md bg-panel-accent/15 flex items-center justify-center">
             <span className="text-panel-accent text-[11px] font-bold">
-              {(user?.username?.[0] ?? 'a').toLocaleUpperCase('tr')}
+              {(user?.username?.[0] ?? 'a').toUpperCase()}
             </span>
           </div>
           <span className="text-panel-muted text-xs">{user?.username}</span>
@@ -296,10 +295,10 @@ export default function TopBar() {
         <button
           onClick={logout}
           className="flex items-center gap-1.5 text-panel-muted hover:text-panel-red text-xs transition-colors px-2 py-1 rounded hover:bg-panel-red/10"
-          title="Çıkış yap"
+          title="Log out"
         >
           <LogOut size={13} />
-          <span className="hidden sm:inline">Çıkış yap</span>
+          <span className="hidden sm:inline">Log out</span>
         </button>
       </div>
     </header>

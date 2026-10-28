@@ -2,6 +2,7 @@ import React from 'react';
 import { Clock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useStore } from '../../../store/useStore.js';
+import { useOpenPanel } from '../../../hooks/useOpenPanel.js';
 import client from '../../../api/client.js';
 import { useWidgetSize, widgetBreakpoints } from '../WidgetSizeContext.js';
 
@@ -9,7 +10,7 @@ const PCOLOR = { 0: 'text-panel-red', 1: 'text-panel-red', 2: 'text-panel-red', 
 
 function fmtTs(ts) {
   if (!ts) return '';
-  return new Date(ts).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 const WidgetRecentLogs = React.memo(function WidgetRecentLogs() {
@@ -18,7 +19,7 @@ const WidgetRecentLogs = React.memo(function WidgetRecentLogs() {
     queryFn: () => client.get('/logs/journal', { params: { lines: 30, priority: 'warning' } }).then(r => r.data),
     refetchInterval: 15000,
   });
-  const setActiveTab = useStore(s => s.setActiveTab);
+  const openPanel = useOpenPanel();
 
   const px = useWidgetSize();
   const bp = widgetBreakpoints(px);
@@ -29,17 +30,17 @@ const WidgetRecentLogs = React.memo(function WidgetRecentLogs() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <Clock size={13} className="text-panel-muted" />
-          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">Son hata ve uyarılar</span>}
+          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">Recent errors & warnings</span>}
         </div>
-        <button onClick={() => setActiveTab('logs')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
-          Tümünü gör
+        <button onClick={() => openPanel('logs')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
+          View all
         </button>
       </div>
       <div className="flex-1 overflow-auto">
         {!data?.entries?.length ? (
           <div className="flex flex-col items-center justify-center py-8 gap-2">
             <span className="w-2 h-2 rounded-full bg-panel-green" />
-            <span className="text-panel-muted text-xs">Hata veya uyarı yok</span>
+            <span className="text-panel-muted text-xs">No errors or warnings</span>
           </div>
         ) : (
           <div className="divide-y divide-panel-border/40">

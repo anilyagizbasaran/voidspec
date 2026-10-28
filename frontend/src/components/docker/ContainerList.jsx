@@ -35,7 +35,7 @@ function buildSections(containers, groupState) {
   const assign = groupState?.assign || {};
   const custom = new Map(groups.map(g => [g.id, { key: `g:${g.id}`, kind: 'custom', group: g, name: g.name, items: [] }]));
   const compose = new Map();
-  const loose = { key: 'none', kind: 'none', name: 'Compose dışı', items: [] };
+  const loose = { key: 'none', kind: 'none', name: 'Standalone', items: [] };
 
   for (const c of containers) {
     const gid = assign[c.name];
@@ -49,7 +49,7 @@ function buildSections(containers, groupState) {
     }
   }
 
-  const byName = (a, b) => a.name.localeCompare(b.name, 'tr');
+  const byName = (a, b) => a.name.localeCompare(b.name);
   for (const s of [...custom.values(), ...compose.values(), loose]) s.items.sort(byName);
   return [
     ...custom.values(),
@@ -72,14 +72,14 @@ function GroupNameInput({ initial = '', placeholder, onSubmit, onCancel, busy })
         onChange={e => setValue(e.target.value)}
         onKeyDown={e => e.key === 'Escape' && onCancel()}
         placeholder={placeholder}
-        aria-label="Grup adı"
+        aria-label="Group name"
         className="w-44 bg-panel-bg border border-panel-border rounded px-2.5 py-1 text-sm text-panel-text focus:outline-none focus:border-panel-accent"
       />
-      <button type="submit" disabled={busy || !value.trim()} title="Kaydet"
+      <button type="submit" disabled={busy || !value.trim()} title="Save"
         className="p-1.5 rounded text-panel-accent hover:bg-panel-accent/10 disabled:opacity-40">
         <Check size={14} />
       </button>
-      <button type="button" onClick={onCancel} title="Vazgeç"
+      <button type="button" onClick={onCancel} title="Cancel"
         className="p-1.5 rounded text-panel-muted hover:text-panel-text hover:bg-panel-hover">
         <X size={14} />
       </button>
@@ -99,13 +99,13 @@ function GroupSection({ section, collapsed, onToggle, groupState, onAssign }) {
   const canStop = items.some(c => c.state === 'running' && !c.self);
   const led = !items.length ? 'led-off' : running === items.length ? 'led-ok' : running === 0 ? 'led-crit' : 'led-warn';
 
-  const ACTION_DONE = { start: 'başlatıldı', stop: 'durduruldu', restart: 'yeniden başlatıldı' };
+  const ACTION_DONE = { start: 'started', stop: 'stopped', restart: 'restarted' };
 
   function runAction(action) {
     groupAction.mutate({ action, containers: items }, {
       onSuccess: ({ total, failed }) => {
-        if (failed.length) toast.error(`${failed.join(', ')} için işlem başarısız oldu.`, section.name);
-        else toast.success(`${total} container ${ACTION_DONE[action]}.`, section.name);
+        if (failed.length) toast.error(`Action failed for ${failed.join(', ')}.`, section.name);
+        else toast.success(`${total} container(s) ${ACTION_DONE[action]}.`, section.name);
       },
       onError: e => toast.error(e.message, section.name),
     });
@@ -114,7 +114,7 @@ function GroupSection({ section, collapsed, onToggle, groupState, onAssign }) {
   function rename(name) {
     groupMut.mutate({ op: 'rename', id: section.group.id, name }, {
       onSuccess: () => setRenaming(false),
-      onError: e => toast.error(e.response?.data?.error || e.message, 'Grup yeniden adlandırılamadı'),
+      onError: e => toast.error(e.response?.data?.error || e.message, 'Could not rename group'),
     });
   }
 
@@ -125,8 +125,8 @@ function GroupSection({ section, collapsed, onToggle, groupState, onAssign }) {
       return;
     }
     groupMut.mutate({ op: 'delete', id: section.group.id }, {
-      onSuccess: () => toast.success('Container\'lar varsayılan gruplarına döndü.', `${section.name} silindi`),
-      onError: e => toast.error(e.response?.data?.error || e.message, 'Grup silinemedi'),
+      onSuccess: () => toast.success('Containers moved back to their default groups.', `${section.name} deleted`),
+      onError: e => toast.error(e.response?.data?.error || e.message, 'Could not delete group'),
     });
   }
 
@@ -146,41 +146,41 @@ function GroupSection({ section, collapsed, onToggle, groupState, onAssign }) {
           >
             <ChevronRight size={14} className={`text-panel-muted shrink-0 transition-transform ${collapsed ? '' : 'rotate-90'}`} />
             <span className="text-panel-text font-semibold text-[15px] truncate">{section.name}</span>
-            {section.kind === 'compose' && <span className="text-panel-muted-2 text-xs shrink-0">compose projesi</span>}
+            {section.kind === 'compose' && <span className="text-panel-muted-2 text-xs shrink-0">compose project</span>}
           </button>
         )}
 
         <span className="flex items-center gap-1.5 text-xs text-panel-muted shrink-0">
           <span className={`led ${led}`} />
-          {items.length ? `${running}/${items.length} çalışıyor` : 'Boş'}
+          {items.length ? `${running}/${items.length} running` : 'Empty'}
         </span>
 
         <div className="ml-auto flex items-center gap-0.5">
           {canStart && (
             <button onClick={() => runAction('start')} disabled={busy} className={`${btn} hover:text-panel-green hover:bg-panel-green/10`}>
-              <Play size={12} /> Hepsini başlat
+              <Play size={12} /> Start all
             </button>
           )}
           {canStop && (
             <>
               <button onClick={() => runAction('restart')} disabled={busy} className={`${btn} hover:text-panel-yellow hover:bg-panel-yellow/10`}>
-                <RotateCcw size={12} /> Yeniden başlat
+                <RotateCcw size={12} /> Restart
               </button>
               <button onClick={() => runAction('stop')} disabled={busy} className={`${btn} hover:text-panel-red hover:bg-panel-red/10`}>
-                <Square size={12} /> Hepsini durdur
+                <Square size={12} /> Stop all
               </button>
             </>
           )}
           {section.kind === 'custom' && !renaming && (
             <>
               <span className="w-px h-4 bg-panel-border mx-1" />
-              <button onClick={() => setRenaming(true)} title="Grubu yeniden adlandır" aria-label="Grubu yeniden adlandır"
+              <button onClick={() => setRenaming(true)} title="Rename group" aria-label="Rename group"
                 className="p-1.5 rounded text-panel-muted hover:text-panel-text hover:bg-panel-hover">
                 <Pencil size={12} />
               </button>
-              <button onClick={remove} title="Grubu sil"
+              <button onClick={remove} title="Delete group"
                 className={`flex items-center gap-1 p-1.5 rounded text-xs transition-colors ${confirmDelete ? 'bg-panel-red text-white' : 'text-panel-muted hover:text-panel-red hover:bg-panel-red/10'}`}>
-                <Trash2 size={12} /> {confirmDelete && 'Grubu sil?'}
+                <Trash2 size={12} /> {confirmDelete && 'Delete group?'}
               </button>
             </>
           )}
@@ -198,7 +198,7 @@ function GroupSection({ section, collapsed, onToggle, groupState, onAssign }) {
             </div>
           ) : (
             <p className="text-panel-muted text-sm py-3">
-              Bu grup henüz boş. Bir container'ı buraya almak için kartındaki grup menüsünden “{section.name}” seç.
+              This group is empty. To move a container here, pick “{section.name}” in the group menu on its card.
             </p>
           )}
         </div>
@@ -223,11 +223,11 @@ export default function ContainerList() {
   const running = containers?.filter(c => c.state === 'running').length || 0;
 
   const sections = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase('tr');
+    const q = query.trim().toLowerCase();
     const list = (containers || []).filter(c => !q
-      || c.name.toLocaleLowerCase('tr').includes(q)
-      || c.image.toLocaleLowerCase('tr').includes(q)
-      || (c.project || '').toLocaleLowerCase('tr').includes(q));
+      || c.name.toLowerCase().includes(q)
+      || c.image.toLowerCase().includes(q)
+      || (c.project || '').toLowerCase().includes(q));
     const all = buildSections(list, groupState);
     // Arama yaparken boş kalan grupları gizle; normalde boş özel grup görünür kalsın.
     return q ? all.filter(s => s.items.length) : all;
@@ -244,14 +244,14 @@ export default function ContainerList() {
 
   function createGroup(name) {
     groupMut.mutate({ op: 'create', name }, {
-      onSuccess: () => { setCreating(false); toast.success('Container kartlarındaki grup menüsünden buraya taşıyabilirsin.', `${name} oluşturuldu`); },
-      onError: e => toast.error(e.response?.data?.error || e.message, 'Grup oluşturulamadı'),
+      onSuccess: () => { setCreating(false); toast.success('Use the group menu on a container card to move containers here.', `${name} created`); },
+      onError: e => toast.error(e.response?.data?.error || e.message, 'Could not create group'),
     });
   }
 
   function assign(container, groupId) {
     groupMut.mutate({ op: 'assign', container, groupId }, {
-      onError: e => toast.error(e.response?.data?.error || e.message, 'Container taşınamadı'),
+      onError: e => toast.error(e.response?.data?.error || e.message, 'Could not move container'),
     });
   }
 
@@ -269,11 +269,11 @@ export default function ContainerList() {
     <div className="flex flex-col gap-4 h-full overflow-auto">
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={() => setTab('containers')} className={tabCls(tab === 'containers')}>
-          Container'lar
-          {containers && <span className="ml-2 text-xs text-panel-muted">{running}/{containers.length} çalışıyor</span>}
+          Containers
+          {containers && <span className="ml-2 text-xs text-panel-muted">{running}/{containers.length} running</span>}
         </button>
         <button onClick={() => setTab('images')} className={tabCls(tab === 'images')}>
-          İmajlar
+          Images
           {images && <span className="ml-2 text-xs text-panel-muted">{images.length}</span>}
         </button>
 
@@ -284,24 +284,24 @@ export default function ContainerList() {
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Container ara"
-                aria-label="Container ara"
+                placeholder="Search containers"
+                aria-label="Search containers"
                 className="w-48 bg-panel-bg border border-panel-border rounded pl-8 pr-2.5 py-1 text-sm text-panel-text focus:outline-none focus:border-panel-accent"
               />
             </div>
             {creating ? (
-              <GroupNameInput placeholder="Grup adı, ör. WordPick" onSubmit={createGroup}
+              <GroupNameInput placeholder="Group name, e.g. WordPick" onSubmit={createGroup}
                 onCancel={() => setCreating(false)} busy={groupMut.isPending} />
             ) : (
               <button onClick={() => setCreating(true)}
                 className="flex items-center gap-1.5 px-3 py-1 text-sm rounded bg-panel-accent text-panel-bg font-medium hover:bg-panel-accent/90">
-                <FolderPlus size={14} /> Yeni grup
+                <FolderPlus size={14} /> New group
               </button>
             )}
           </div>
         )}
 
-        <button onClick={() => { refetchC(); refetchI(); }} title="Yenile" aria-label="Yenile"
+        <button onClick={() => { refetchC(); refetchI(); }} title="Refresh" aria-label="Refresh"
           className={`${tab === 'containers' ? '' : 'ml-auto'} p-1.5 rounded text-panel-muted hover:text-panel-text hover:bg-panel-hover`}>
           <RefreshCw size={14} />
         </button>
@@ -315,11 +315,11 @@ export default function ContainerList() {
             ))}
           </div>
         ) : cError ? (
-          <div className="text-panel-red text-sm py-8 text-center">Container listesi alınamadı. Docker servisinin çalıştığını kontrol et.</div>
+          <div className="text-panel-red text-sm py-8 text-center">Could not load containers. Check that the Docker service is running.</div>
         ) : !containers?.length ? (
-          <p className="text-panel-muted text-sm">Bu sunucuda hiç container yok.</p>
+          <p className="text-panel-muted text-sm">No containers on this server.</p>
         ) : !sections.length ? (
-          <p className="text-panel-muted text-sm">“{query}” ile eşleşen container yok.</p>
+          <p className="text-panel-muted text-sm">No containers match “{query}”.</p>
         ) : (
           <div className="flex flex-col gap-3">
             {sections.map(s => (
@@ -346,7 +346,7 @@ export default function ContainerList() {
             <button onClick={handlePull} disabled={pulling || !pullImage.trim()}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-panel-accent/20 text-panel-accent text-sm rounded hover:bg-panel-accent/30 disabled:opacity-50">
               <Download size={13} />
-              {pulling ? 'İndiriliyor…' : 'İmaj indir'}
+              {pulling ? 'Pulling…' : 'Pull image'}
             </button>
           </div>
 
@@ -357,7 +357,7 @@ export default function ContainerList() {
               ))}
             </div>
           ) : iError ? (
-            <div className="text-panel-red text-sm py-4 text-center">İmaj listesi alınamadı.</div>
+            <div className="text-panel-red text-sm py-4 text-center">Could not load images.</div>
           ) : (
             <div className="flex flex-col gap-2">
               {images?.map(img => (
@@ -367,7 +367,7 @@ export default function ContainerList() {
                     <div className="text-sm text-panel-text truncate font-mono">{img.tags?.[0] || '<none>'}</div>
                     <div className="text-xs text-panel-muted">{img.shortId}, {formatBytes(img.size)}</div>
                   </div>
-                  <button onClick={() => imageAction({ action: 'remove', id: img.id })} title="İmajı sil" aria-label="İmajı sil"
+                  <button onClick={() => imageAction({ action: 'remove', id: img.id })} title="Remove image" aria-label="Remove image"
                     className="text-panel-muted hover:text-panel-red p-1 rounded hover:bg-panel-hover">
                     <Trash2 size={13} />
                   </button>

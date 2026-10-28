@@ -33,7 +33,7 @@ const WidgetPorts = React.memo(function WidgetPorts() {
         <div className="flex items-center gap-2">
           <Network size={13} className="text-panel-muted" />
           <span className="text-[13px] font-medium text-panel-muted">
-            {bp.compact ? 'Portlar' : 'Dinlenen portlar'}
+            {bp.compact ? 'Ports' : 'Listening ports'}
           </span>
         </div>
         <span className="text-[11px] font-mono text-panel-muted/60">{data?.ports?.length ?? 0} port</span>
@@ -47,7 +47,7 @@ const WidgetPorts = React.memo(function WidgetPorts() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Port veya servis ara…"
+              placeholder="Search port or process…"
               className="flex-1 bg-transparent text-xs text-panel-text placeholder-panel-muted/40 focus:outline-none"
             />
           </div>
@@ -57,7 +57,7 @@ const WidgetPorts = React.memo(function WidgetPorts() {
       <div className="flex-1 overflow-auto divide-y divide-panel-border/30">
         {ports.length === 0 && (
           <div className="flex items-center justify-center py-8 text-panel-muted text-xs">
-            {search ? 'Sonuç bulunamadı' : 'Port bulunamadı'}
+            {search ? 'No results' : 'No ports found'}
           </div>
         )}
         {ports.map((p, i) => {

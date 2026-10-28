@@ -2,6 +2,7 @@ import React from 'react';
 import { HardDrive } from 'lucide-react';
 import { useSystemStats } from '../../../hooks/useSystemStats.js';
 import { useStore } from '../../../store/useStore.js';
+import { useOpenPanel } from '../../../hooks/useOpenPanel.js';
 import { fmtBytes } from '../../../utils/format.js';
 import { useWidgetSize, widgetBreakpoints } from '../WidgetSizeContext.js';
 
@@ -16,7 +17,7 @@ function DiskBar({ pct }) {
 
 const WidgetDiskList = React.memo(function WidgetDiskList() {
   const { data: stats } = useSystemStats();
-  const setActiveTab = useStore(s => s.setActiveTab);
+  const openPanel = useOpenPanel();
   const px = useWidgetSize();
   const bp = widgetBreakpoints(px);
   const disks = stats?.disk ?? [];
@@ -26,16 +27,16 @@ const WidgetDiskList = React.memo(function WidgetDiskList() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <HardDrive size={13} className="text-panel-muted" />
-          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">Disk Kullanımı</span>}
+          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">Disk Usage</span>}
         </div>
-        <button onClick={() => setActiveTab('files')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
-          Dosyalara git
+        <button onClick={() => openPanel('files')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
+          Open Files
         </button>
       </div>
 
       <div className="flex-1 overflow-auto divide-y divide-panel-border/30">
         {disks.length === 0 && (
-          <div className="flex items-center justify-center py-8 text-panel-muted text-xs">Disk bulunamadı</div>
+          <div className="flex items-center justify-center py-8 text-panel-muted text-xs">No disks found</div>
         )}
         {disks.map((d, i) => {
           const pct = d.percent ?? 0;
@@ -51,7 +52,7 @@ const WidgetDiskList = React.memo(function WidgetDiskList() {
               <DiskBar pct={pct} />
               {!bp.compact && (
                 <div className="flex justify-between mt-1">
-                  <span className="text-[11px] text-panel-muted">{fmtBytes(d.used)} kullanıldı</span>
+                  <span className="text-[11px] text-panel-muted">{fmtBytes(d.used)} used</span>
                   <span className="text-[11px] text-panel-muted">{fmtBytes(d.size)} toplam</span>
                 </div>
               )}

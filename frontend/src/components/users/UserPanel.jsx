@@ -69,7 +69,7 @@ function UserDetail({ username, onClose }) {
 
               {/* Groups */}
               <div>
-                <p className="text-panel-muted text-sm font-medium mb-2">Gruplar</p>
+                <p className="text-panel-muted text-sm font-medium mb-2">Groups</p>
                 <div className="flex flex-wrap gap-1.5">
                   {(data.groups || []).map(g => (
                     <span key={g} className={`px-2 py-0.5 text-xs rounded border font-mono ${
@@ -83,7 +83,7 @@ function UserDetail({ username, onClose }) {
               {/* Recent logins */}
               {data.logins?.length > 0 && (
                 <div>
-                  <p className="text-panel-muted text-sm font-medium mb-2">Son girişler</p>
+                  <p className="text-panel-muted text-sm font-medium mb-2">Recent logins</p>
                   <div className="space-y-1">
                     {data.logins.map((l, i) => (
                       <div key={i} className="flex gap-4 text-xs font-mono">
@@ -97,7 +97,7 @@ function UserDetail({ username, onClose }) {
 
               {/* SSH Keys */}
               <div>
-                <p className="text-panel-muted text-sm font-medium mb-2">Yetkili SSH anahtarları ({data.sshKeys?.length || 0})</p>
+                <p className="text-panel-muted text-sm font-medium mb-2">Authorized SSH keys ({data.sshKeys?.length || 0})</p>
                 <div className="space-y-1.5 mb-3">
                   {data.sshKeys?.length === 0 && <p className="text-panel-muted text-xs">No keys</p>}
                   {data.sshKeys?.map(k => (

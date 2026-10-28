@@ -8,7 +8,7 @@ const PRIORITY_COLORS = { 0: 'text-red-400', 1: 'text-red-400', 2: 'text-red-400
 
 function formatTs(ts) {
   if (!ts) return '';
-  return new Date(ts).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function formatBytes(b) {
@@ -86,7 +86,7 @@ export default function LogsPanel() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Ara..."
+                placeholder="Search..."
                 className="bg-transparent text-xs text-panel-text focus:outline-none w-32"
               />
             </div>
@@ -105,21 +105,23 @@ export default function LogsPanel() {
               onChange={e => setUnit(e.target.value)}
               className="bg-panel-bg border border-panel-border rounded px-2 py-1 text-xs text-panel-text focus:outline-none max-w-40"
             >
-              <option value="">Tüm servisler</option>
+              <option value="">All services</option>
               {unitsData?.units?.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
-            <span className="text-panel-muted text-xs ml-auto">{journalData?.total ?? 0} satır</span>
+            <span className="text-panel-muted text-xs ml-auto">{journalData?.total ?? 0} lines</span>
           </div>
 
           {/* Log entries */}
           <div className="flex-1 overflow-y-auto font-mono text-xs px-4 py-2 space-y-0.5">
             {journalLoading ? (
-              <div className="text-panel-muted py-4">Yükleniyor...</div>
+              <div className="text-panel-muted py-4">Loading...</div>
             ) : journalData?.entries?.map((e, i) => (
-              <div key={i} className="flex gap-2 hover:bg-panel-hover px-1 py-0.5 rounded">
-                <span className="text-panel-muted shrink-0 w-20">{formatTs(e.ts)}</span>
-                <span className={`shrink-0 w-28 truncate text-panel-muted`}>{e.unit}</span>
-                <span className={`flex-1 break-all ${PRIORITY_COLORS[e.priority] ?? 'text-panel-text'}`}>{e.msg}</span>
+              <div key={i} className="flex flex-col sm:flex-row sm:gap-2 hover:bg-panel-hover px-1 py-1 sm:py-0.5 rounded">
+                <div className="flex gap-2 shrink-0 min-w-0">
+                  <span className="text-panel-muted shrink-0 w-20">{formatTs(e.ts)}</span>
+                  <span className="sm:w-28 truncate text-panel-muted">{e.unit}</span>
+                </div>
+                <span className={`flex-1 min-w-0 break-words ${PRIORITY_COLORS[e.priority] ?? 'text-panel-text'}`}>{e.msg}</span>
               </div>
             ))}
             <div ref={bottomRef} />
@@ -132,7 +134,7 @@ export default function LogsPanel() {
           {/* File list */}
           <div className="md:w-56 border-r border-panel-border overflow-y-auto shrink-0">
             {filesLoading ? (
-              <div className="p-4 text-panel-muted text-xs">Yükleniyor...</div>
+              <div className="p-4 text-panel-muted text-xs">Loading...</div>
             ) : filesData?.files?.map(f => (
               <button
                 key={f.name}
@@ -154,17 +156,17 @@ export default function LogsPanel() {
                   <input
                     value={fileSearch}
                     onChange={e => setFileSearch(e.target.value)}
-                    placeholder="Dosyada ara..."
+                    placeholder="Search in file..."
                     className="bg-transparent text-xs text-panel-text focus:outline-none flex-1"
                   />
-                  <span className="text-panel-muted text-xs">{fileContent?.lines ?? 0} satır</span>
+                  <span className="text-panel-muted text-xs">{fileContent?.lines ?? 0} lines</span>
                 </div>
                 <pre className="flex-1 overflow-auto p-3 text-xs font-mono text-panel-text leading-5 whitespace-pre-wrap break-all">
-                  {fileLoading ? 'Yükleniyor...' : fileContent?.content}
+                  {fileLoading ? 'Loading...' : fileContent?.content}
                 </pre>
               </>
             ) : (
-              <div className="flex items-center justify-center h-full text-panel-muted text-xs">Sol taraftan bir dosya seçin</div>
+              <div className="flex items-center justify-center h-full text-panel-muted text-xs">Select a file on the left</div>
             )}
           </div>
         </div>

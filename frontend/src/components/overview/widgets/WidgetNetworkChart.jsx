@@ -17,7 +17,7 @@ const WidgetNetworkChart = React.memo(function WidgetNetworkChart() {
     if (!stats?.network) return;
     const { rx, tx } = netTotals(stats);
     setHistory(prev => {
-      const entry = { t: new Date().toLocaleTimeString('tr-TR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }), rx: Math.round(rx / 1024), tx: Math.round(tx / 1024), rxRaw: rx, txRaw: tx };
+      const entry = { t: new Date().toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }), rx: Math.round(rx / 1024), tx: Math.round(tx / 1024), rxRaw: rx, txRaw: tx };
       const next = [...prev, entry];
       return next.length > MAX_PTS ? next.slice(-MAX_PTS) : next;
     });
@@ -29,7 +29,7 @@ const WidgetNetworkChart = React.memo(function WidgetNetworkChart() {
     <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <span className="text-[13px] font-medium text-panel-muted">
-          {bp.compact ? 'Ağ' : 'Ağ geçmişi'}
+          {bp.compact ? 'Network' : 'Network history'}
         </span>
         {latest && (
           <div className="flex items-center gap-3 text-[11px] font-mono tabular-nums">

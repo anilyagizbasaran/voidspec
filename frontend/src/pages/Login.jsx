@@ -23,7 +23,7 @@ export default function Login() {
       setUser(me.data);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Kullanıcı adı ya da parola yanlış.');
+      setError(err.response?.data?.error || 'Incorrect username or password.');
     } finally {
       setLoading(false);
     }
@@ -45,9 +45,9 @@ export default function Login() {
           </div>
           <div className="min-w-0">
             <h1 className="text-lg font-semibold text-panel-text truncate">ServerPanel</h1>
-            <p className="text-panel-muted text-xs truncate">Ubuntu sunucu yönetimi</p>
+            <p className="text-panel-muted text-xs truncate">Ubuntu server management</p>
           </div>
-          <span className="led led-ok ml-auto shrink-0" title="Sunucu ayakta" />
+          <span className="led led-ok ml-auto shrink-0" title="Server is up" />
         </div>
 
         {/* Form panel */}
@@ -56,7 +56,7 @@ export default function Login() {
 
             {/* Username */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] text-panel-muted font-medium">Kullanıcı adı</label>
+              <label className="text-[13px] text-panel-muted font-medium">Username</label>
               <input
                 type="text"
                 value={username}
@@ -71,7 +71,7 @@ export default function Login() {
 
             {/* Password */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] text-panel-muted font-medium">Parola</label>
+              <label className="text-[13px] text-panel-muted font-medium">Password</label>
               <div className="relative">
                 <input
                   type={showPw ? 'text' : 'password'}
@@ -112,16 +112,16 @@ export default function Login() {
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-3.5 h-3.5 border-2 border-panel-bg/30 border-t-panel-bg rounded-full animate-spin" />
-                  Doğrulanıyor…
+                  Signing in…
                 </span>
-              ) : 'Giriş yap'}
+              ) : 'Sign in'}
             </button>
           </form>
         </div>
 
         {/* Footer */}
         <p className="text-center text-panel-muted text-xs mt-5">
-          Oturum 24 saat açık kalır.
+          Sessions last 24 hours.
         </p>
       </div>
     </div>

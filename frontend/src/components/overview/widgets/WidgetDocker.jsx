@@ -2,6 +2,7 @@ import React from 'react';
 import { Container } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useStore } from '../../../store/useStore.js';
+import { useOpenPanel } from '../../../hooks/useOpenPanel.js';
 import client from '../../../api/client.js';
 import { StatusCard } from '../cards.jsx';
 
@@ -11,7 +12,7 @@ const WidgetDocker = React.memo(function WidgetDocker() {
     queryFn: () => client.get('/docker/containers').then(r => r.data),
     refetchInterval: 10000,
   });
-  const setActiveTab = useStore(s => s.setActiveTab);
+  const openPanel = useOpenPanel();
   const list = Array.isArray(dock) ? dock : dock?.containers ?? [];
   const running = list.filter(c => c.state === 'running').length;
   const total = list.length;
@@ -19,10 +20,10 @@ const WidgetDocker = React.memo(function WidgetDocker() {
     <StatusCard
       icon={Container}
       label="Docker"
-      value={dock != null ? `${running}/${total} çalışıyor` : '—'}
-      sub={dock != null ? `${total - running} durdu` : null}
+      value={dock != null ? `${running}/${total} running` : '—'}
+      sub={dock != null ? `${total - running} stopped` : null}
       status={running > 0 ? 'ok' : running === 0 && total > 0 ? 'warn' : 'off'}
-      onClick={() => setActiveTab('docker')}
+      onClick={() => openPanel('docker')}
     />
   );
 });

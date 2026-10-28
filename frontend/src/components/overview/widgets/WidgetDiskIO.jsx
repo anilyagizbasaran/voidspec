@@ -17,7 +17,7 @@ const WidgetDiskIO = React.memo(function WidgetDiskIO() {
     if (!stats?.diskIO) return;
     setHistory(prev => {
       const entry = {
-        t: new Date().toLocaleTimeString('tr-TR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        t: new Date().toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         read:  Math.round((stats.diskIO.readSec  || 0) / 1024),
         write: Math.round((stats.diskIO.writeSec || 0) / 1024),
         readRaw:  stats.diskIO.readSec  || 0,
@@ -36,7 +36,7 @@ const WidgetDiskIO = React.memo(function WidgetDiskIO() {
         <div className="flex items-center gap-2">
           <HardDrive size={13} className="text-panel-muted" />
           <span className="text-[13px] font-medium text-panel-muted">
-            {bp.compact ? 'Disk I/O' : 'Disk G/Ç geçmişi'}
+            {bp.compact ? 'Disk I/O' : 'Disk I/O history'}
           </span>
         </div>
         {latest && (

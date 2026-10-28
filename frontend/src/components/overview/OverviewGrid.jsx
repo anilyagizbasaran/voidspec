@@ -4,13 +4,28 @@ import { LayoutGrid, RotateCcw, Check, X, GripHorizontal, Undo2 } from 'lucide-r
 import { WIDGET_REGISTRY, DEFAULT_LAYOUT, DEFAULT_VISIBLE, STORAGE_KEY } from './widgetRegistry.js';
 import WidgetGallery from './WidgetGallery.jsx';
 import { WidgetSizeCtx } from './WidgetSizeContext.js';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
+import { useOpenPanel } from '../../hooks/useOpenPanel.js';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
+// Widget'ın kendi denetimleri (düğme, arama kutusu, sıralama seçimi) tıklamayı
+// kendisi işler; yalnızca bunların dışına tıklanınca ilgili panel açılır.
+const INTERACTIVE = 'button, a, input, select, textarea, label, [role="button"]';
+
 /* Measures pixel size via ResizeObserver and injects into context */
-function WidgetWrapper({ Widget, editMode, label, onRemove }) {
+function WidgetWrapper({ Widget, editMode, link }) {
   const outerRef = useRef(null);
   const [px, setPx] = useState({ w: 0, h: 0 });
+  const openPanel = useOpenPanel();
+  const clickable = link && !editMode;
+
+  function onClick(e) {
+    if (!clickable || e.target.closest(INTERACTIVE)) return;
+    // Metin seçerken sayfa değişmesin.
+    if (window.getSelection()?.toString()) return;
+    openPanel(link);
+  }
 
   useEffect(() => {
     const el = outerRef.current;
@@ -24,7 +39,11 @@ function WidgetWrapper({ Widget, editMode, label, onRemove }) {
   }, []);
 
   return (
-    <div ref={outerRef} className={`w-full h-full overflow-hidden ${editMode ? 'pt-6' : ''}`}>
+    <div
+      ref={outerRef}
+      onClick={onClick}
+      className={`w-full h-full overflow-hidden ${editMode ? 'pt-6' : ''} ${clickable ? 'cursor-pointer' : ''}`}
+    >
       <WidgetSizeCtx.Provider value={px}>
         <Widget />
       </WidgetSizeCtx.Provider>
@@ -86,14 +105,14 @@ function UndoToast({ item, onUndo, onDismiss }) {
   return (
     <div className="flex items-center gap-3 px-3 py-2 bg-panel-surface-2 border border-panel-border rounded-md text-xs shadow-lg animate-fade-up">
       <span className="text-panel-muted">
-        <span className="text-panel-text">{WIDGET_REGISTRY[item.id]?.label}</span> gizlendi
+        <span className="text-panel-text">{WIDGET_REGISTRY[item.id]?.label}</span> hidden
       </span>
       <button
         onClick={onUndo}
         className="flex items-center gap-1 text-panel-accent hover:text-panel-accent/80 font-medium transition-colors"
       >
         <Undo2 size={11} />
-        Geri al
+        Undo
       </button>
       <button onClick={onDismiss} className="text-panel-muted/40 hover:text-panel-muted transition-colors ml-1">
         <X size={10} />
@@ -106,15 +125,46 @@ function UndoToast({ item, onUndo, onDismiss }) {
 function ResetConfirm({ onConfirm, onCancel }) {
   return (
     <div className="flex items-center gap-3 px-3 py-2 bg-panel-red/10 border border-panel-red/25 rounded text-xs shadow-lg animate-fade-up">
-      <span className="text-panel-muted">Layout sıfırlansın mı?</span>
-      <button onClick={onConfirm} className="text-panel-red hover:text-panel-red/80 font-medium transition-colors">Evet, sıfırla</button>
-      <button onClick={onCancel}  className="text-panel-muted hover:text-panel-text transition-colors">İptal</button>
+      <span className="text-panel-muted">Reset layout?</span>
+      <button onClick={onConfirm} className="text-panel-red hover:text-panel-red/80 font-medium transition-colors">Yes, reset</button>
+      <button onClick={onCancel}  className="text-panel-muted hover:text-panel-text transition-colors">Cancel</button>
+    </div>
+  );
+}
+
+/* ── Mobil: tek sütun ──
+   12 sütunluk ızgara telefonda her widget'ı ~80 px genişliğe sıkıştırıyordu.
+   Dar ekranda widget'lar masaüstü yerleşimindeki sırayla (yukarıdan aşağı,
+   soldan sağa) alt alta diziliyor; yükseklikleri masaüstündekiyle aynı. */
+function MobileStack({ layout }) {
+  const ordered = [...layout].sort((a, b) => a.y - b.y || a.x - b.x);
+  return (
+    <div className="h-full overflow-y-auto p-3 flex flex-col gap-2">
+      {ordered.map(item => {
+        const reg = WIDGET_REGISTRY[item.i];
+        if (!reg) return null;
+        // Küçük kartlar (CPU, RAM …) tam genişlikte gereğinden uzun kalıyordu;
+        // telefonda boylarını kısaltıyoruz, listeler masaüstü boyunda kalıyor.
+        const full = item.h * ROW_HEIGHT + (item.h - 1) * MARGIN[1];
+        const height = item.w <= 3 ? Math.min(full, 156) : full;
+        return (
+          <div key={item.i} className="shrink-0 overflow-hidden" style={{ height }}>
+            <WidgetWrapper Widget={reg.component} editMode={false} link={reg.link} />
+          </div>
+        );
+      })}
+      {ordered.length === 0 && (
+        <p className="text-sm text-panel-muted text-center py-10">
+          No widgets — add some in edit mode on a larger screen.
+        </p>
+      )}
     </div>
   );
 }
 
 /* ── Main Component ── */
 export default function OverviewGrid() {
+  const isMobile = useIsMobile();
   const [state, setState]         = useState(loadState);
   const [editMode, setEditMode]   = useState(false);
   const [showGallery, setShowGallery] = useState(false);
@@ -208,6 +258,10 @@ export default function OverviewGrid() {
     setShowReset(false);
   }, []);
 
+  // Sürükle-bırak düzenleme dokunmatik ekranda kullanışlı değil; mobilde
+  // yalnızca görüntüleme.
+  if (isMobile) return <MobileStack layout={visibleLayout} />;
+
   return (
     <div className="relative h-full flex flex-col overflow-hidden">
 
@@ -257,18 +311,13 @@ export default function OverviewGrid() {
                       onPointerDown={e => e.stopPropagation()}
                       onClick={e => removeWidget(item.i, e)}
                       className="p-0.5 text-panel-muted/40 hover:text-panel-red transition-colors rounded shrink-0"
-                      title="Gizle"
+                      title="Hide"
                     >
                       <X size={10} />
                     </button>
                   </div>
                 )}
-                <WidgetWrapper
-                  Widget={Widget}
-                  editMode={editMode}
-                  label={reg.label}
-                  onRemove={e => removeWidget(item.i, e)}
-                />
+                <WidgetWrapper Widget={Widget} editMode={editMode} link={reg.link} />
               </div>
             );
           })}
@@ -278,8 +327,8 @@ export default function OverviewGrid() {
         {visibleLayout.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-panel-muted pointer-events-none">
             <LayoutGrid size={32} className="opacity-20" />
-            <p className="text-sm opacity-50">Hiç widget yok</p>
-            <p className="text-xs opacity-30">Aşağıdaki galeriden ekleyebilirsin</p>
+            <p className="text-sm opacity-50">No widgets</p>
+            <p className="text-xs opacity-30">Add some from the gallery below</p>
           </div>
         )}
       </div>
@@ -289,7 +338,7 @@ export default function OverviewGrid() {
         <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-panel-bg border-t border-panel-accent/20 z-10">
           {/* left: label */}
           <span className="text-[11px] text-panel-accent/80 font-medium hidden sm:block">
-            Düzenleme Modu
+            Edit mode
           </span>
 
           <div className="flex items-center gap-2 ml-auto">
@@ -313,7 +362,7 @@ export default function OverviewGrid() {
               }`}
             >
               <LayoutGrid size={11} />
-              Widget Galerisi
+              Widget Gallery
               <span className="ml-0.5 text-[10px] bg-panel-accent/20 text-panel-accent rounded-full px-1 py-0.5 leading-none">
                 {state.visible.length}
               </span>
@@ -326,7 +375,7 @@ export default function OverviewGrid() {
                 className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] bg-panel-surface border border-panel-border rounded-md text-panel-muted hover:text-panel-yellow hover:border-panel-yellow/30 transition-all"
               >
                 <RotateCcw size={11} />
-                Sıfırla
+                Reset
               </button>
             )}
 
@@ -336,7 +385,7 @@ export default function OverviewGrid() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] bg-panel-green/12 border border-panel-green/30 rounded text-panel-green hover:bg-panel-green/20 transition-all"
             >
               <Check size={11} />
-              Bitti
+              Done
             </button>
           </div>
         </div>
@@ -346,7 +395,7 @@ export default function OverviewGrid() {
       {!editMode && (
         <button
           onClick={() => setEditMode(true)}
-          title="Layout'u düzenle"
+          title="Edit layout"
           className="absolute bottom-3 right-3 z-10 p-2 text-panel-muted/30 hover:text-panel-muted hover:bg-panel-hover rounded transition-all"
         >
           <LayoutGrid size={14} />

@@ -12,7 +12,7 @@ const WidgetNetwork = React.memo(function WidgetNetwork() {
   const history = useSparkline(rx);
   return (
     <ResourceCard
-      icon={Network} label="Ağ"
+      icon={Network} label="Network"
       percent={null}
       primary={`${fmtBytes(rx)}/s`}
       secondary={`↓ ${fmtBytes(rx)}/s  ↑ ${fmtBytes(tx)}/s`}

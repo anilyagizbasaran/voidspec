@@ -314,7 +314,7 @@ export default function FirewallPanel() {
       {/* UFW rules table */}
       <div className="bg-panel-surface border border-panel-border rounded-md overflow-x-auto">
         <div className="px-4 py-2.5 border-b border-panel-border flex items-center gap-2">
-          <span className="text-panel-muted text-sm font-medium">UFW kuralları</span>
+          <span className="text-panel-muted text-sm font-medium">UFW rules</span>
           <span className="text-panel-muted text-xs ml-1">({rules.length})</span>
         </div>
         {isLoading ? (
@@ -386,7 +386,7 @@ export default function FirewallPanel() {
             className="w-full px-4 py-2.5 flex items-center gap-2 text-left hover:bg-panel-hover/30"
           >
             {iptablesOpen ? <ChevronDown size={13} className="text-panel-muted" /> : <ChevronRight size={13} className="text-panel-muted" />}
-            <span className="text-panel-muted text-sm font-medium">iptables (salt okunur)</span>
+            <span className="text-panel-muted text-sm font-medium">iptables (read-only)</span>
             <span className="text-panel-muted text-xs ml-1">INPUT {ipt.input.length}, OUTPUT {ipt.output.length}</span>
           </button>
           {iptablesOpen && (

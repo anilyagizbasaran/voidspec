@@ -37,8 +37,8 @@ export function dismissToast(id) {
 }
 
 export const toast = {
-  error:   (message, title = 'Hata')    => pushToast({ type: 'error', title, message, timeout: 9000 }),
-  success: (message, title = 'Tamam')   => pushToast({ type: 'success', title, message }),
+  error:   (message, title = 'Error')    => pushToast({ type: 'error', title, message, timeout: 9000 }),
+  success: (message, title = 'Done')   => pushToast({ type: 'success', title, message }),
   info:    (message, title = 'Bilgi')   => pushToast({ type: 'info', title, message }),
 };
 
@@ -78,7 +78,7 @@ export default function ToastHost() {
             <button
               onClick={() => dismissToast(id)}
               className="text-panel-muted hover:text-panel-text shrink-0"
-              aria-label="Kapat"
+              aria-label="Close"
             >
               <X size={12} />
             </button>

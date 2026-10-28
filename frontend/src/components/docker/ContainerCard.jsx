@@ -11,10 +11,10 @@ function formatBytes(bytes) {
 }
 
 const STATE_CFG = {
-  running: { led: 'led-ok',   label: 'Çalışıyor' },
-  exited:  { led: 'led-crit', label: 'Durdu' },
-  paused:  { led: 'led-warn', label: 'Duraklatıldı' },
-  created: { led: 'led-off',  label: 'Oluşturuldu' },
+  running: { led: 'led-ok',   label: 'Running' },
+  exited:  { led: 'led-crit', label: 'Exited' },
+  paused:  { led: 'led-warn', label: 'Paused' },
+  created: { led: 'led-off',  label: 'Created' },
 };
 
 export default function ContainerCard({ container, groups = [], assignedGroupId = null, onAssign }) {
@@ -45,7 +45,7 @@ export default function ContainerCard({ container, groups = [], assignedGroupId 
             <span className={`led ${cfg.led} shrink-0`} />
             <span className="text-panel-text font-medium text-sm truncate font-mono">{container.name}</span>
             {container.self && (
-              <span title="Panelin kendi container'ı: buradan durdurulamaz veya silinemez"
+              <span title="The panel's own container: it cannot be stopped or removed from here"
                 className="flex items-center gap-1 text-[11px] text-panel-muted shrink-0">
                 <ShieldCheck size={12} /> Panel
               </span>
@@ -67,11 +67,11 @@ export default function ContainerCard({ container, groups = [], assignedGroupId 
               </div>
             </div>
             <div className="bg-panel-bg rounded px-2 py-1">
-              <div className="text-panel-muted text-[11px] mb-0.5">Bellek</div>
+              <div className="text-panel-muted text-[11px] mb-0.5">Memory</div>
               <div className="font-medium tabular-nums text-panel-text">{formatBytes(container.memory?.used)}</div>
             </div>
             <div className="bg-panel-bg rounded px-2 py-1">
-              <div className="text-panel-muted text-[11px] mb-0.5">Portlar</div>
+              <div className="text-panel-muted text-[11px] mb-0.5">Ports</div>
               <div className="font-medium tabular-nums text-panel-text truncate">
                 {ports.length ? ports.map(p => p.PublicPort).join(', ') : '—'}
               </div>
@@ -84,28 +84,28 @@ export default function ContainerCard({ container, groups = [], assignedGroupId 
           {isRunning ? (!container.self && (
             <button onClick={() => handleAction('stop')} disabled={isPending}
               className="flex items-center gap-1 px-2 py-1.5 text-xs whitespace-nowrap text-panel-muted hover:text-panel-red hover:bg-panel-red/10 rounded transition-colors">
-              <Square size={11} /> Durdur
+              <Square size={11} /> Stop
             </button>
           )) : (
             <button onClick={() => handleAction('start')} disabled={isPending}
               className="flex items-center gap-1 px-2 py-1.5 text-xs whitespace-nowrap text-panel-muted hover:text-panel-green hover:bg-panel-green/10 rounded transition-colors">
-              <Play size={11} /> Başlat
+              <Play size={11} /> Start
             </button>
           )}
           <button onClick={() => handleAction('restart')} disabled={isPending}
             className="flex items-center gap-1 px-2 py-1.5 text-xs whitespace-nowrap text-panel-muted hover:text-panel-yellow hover:bg-panel-yellow/10 rounded transition-colors">
-            <RotateCcw size={11} /> Yeniden başlat
+            <RotateCcw size={11} /> Restart
           </button>
           <button onClick={() => setShowLogs(v => !v)}
             className={`flex items-center gap-1 px-2 py-1.5 text-xs whitespace-nowrap rounded transition-colors ${showLogs ? 'text-panel-cyan bg-panel-cyan/10' : 'text-panel-muted hover:text-panel-cyan hover:bg-panel-cyan/10'}`}>
-            <ScrollText size={11} /> Loglar
+            <ScrollText size={11} /> Logs
           </button>
           {onAssign && (
             <select
               value={assignedGroupId || ''}
               onChange={e => onAssign(container.name, e.target.value || null)}
-              aria-label={`${container.name} grubunu değiştir`}
-              title="Grubu değiştir"
+              aria-label={`Change group of ${container.name}`}
+              title="Change group"
               className="ml-auto max-w-[10rem] min-w-0 bg-panel-bg border border-panel-border rounded px-1.5 py-1 text-xs text-panel-muted hover:text-panel-text focus:outline-none focus:border-panel-accent"
             >
               <option value="">{container.project ? `Otomatik: ${container.project}` : 'Otomatik'}</option>
@@ -114,7 +114,7 @@ export default function ContainerCard({ container, groups = [], assignedGroupId 
           )}
           {!container.self && (
           <button onClick={() => handleAction('remove')} disabled={isPending}
-            title="Container'ı sil" aria-label="Container'ı sil"
+            title="Remove container" aria-label="Remove container"
             className={`${onAssign ? '' : 'ml-auto'} flex items-center gap-1 px-2 py-1.5 text-xs whitespace-nowrap rounded transition-colors ${
               confirmRemove ? 'text-white bg-panel-red' : 'text-panel-muted hover:text-panel-red hover:bg-panel-red/10'
             }`}>

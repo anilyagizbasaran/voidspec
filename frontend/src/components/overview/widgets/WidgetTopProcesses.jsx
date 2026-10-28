@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { Activity } from 'lucide-react';
 import { useStore } from '../../../store/useStore.js';
+import { useOpenPanel } from '../../../hooks/useOpenPanel.js';
 import { useProcesses } from '../../../hooks/useProcesses.js';
 import { fmtBytes } from '../../../utils/format.js';
 import { useWidgetSize, widgetBreakpoints } from '../WidgetSizeContext.js';
 
 const WidgetTopProcesses = React.memo(function WidgetTopProcesses() {
   const { data: procs } = useProcesses({ intervalMs: 10000 });
-  const setActiveTab = useStore(s => s.setActiveTab);
+  const openPanel = useOpenPanel();
   const [sortBy, setSortBy] = useState('cpu');
 
   const px = useWidgetSize();
@@ -27,7 +28,7 @@ const WidgetTopProcesses = React.memo(function WidgetTopProcesses() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <Activity size={13} className="text-panel-muted" />
-          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">En çok kaynak kullanan süreçler</span>}
+          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">Top processes</span>}
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-md overflow-hidden border border-panel-border text-[11px]">
@@ -41,8 +42,8 @@ const WidgetTopProcesses = React.memo(function WidgetTopProcesses() {
             >MEM</button>
           </div>
           {!bp.compact && (
-            <button onClick={() => setActiveTab('processes')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
-              Tümünü gör
+            <button onClick={() => openPanel('processes')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
+              View all
             </button>
           )}
         </div>
@@ -68,7 +69,7 @@ const WidgetTopProcesses = React.memo(function WidgetTopProcesses() {
             </div>
           );
         })}
-        {!procs && <div className="px-4 py-6 text-center text-panel-muted text-xs">Yükleniyor…</div>}
+        {!procs && <div className="px-4 py-6 text-center text-panel-muted text-xs">Loading…</div>}
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import {
   Folder, File, ChevronRight, ArrowLeft, ArrowRight, RefreshCw,
   Download, Trash2, FolderPlus, Upload, Eye, X, Save,
   Link, Pencil, Check, Archive, BarChart2, Copy, Scissors, Clipboard,
-  HardDrive, Cpu, Package, Box, Users, Globe, ScrollText, Settings2, Clock,
+  HardDrive, Cpu, Package, Box, Users, Globe, ScrollText, Settings2, Clock, MoreVertical,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -67,13 +67,13 @@ function DiskOverview({ onNavigate }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-panel-muted flex items-center gap-1.5">
-          <HardDrive size={11} /> Disk Kullanımı
+          <HardDrive size={11} /> Disk Usage
         </span>
         <button
           onClick={() => setEditing(v => !v)}
           className={`text-xs px-1.5 py-0.5 rounded transition-colors ${editing ? 'text-panel-accent bg-panel-accent/10' : 'text-panel-muted hover:text-panel-text hover:bg-panel-hover'}`}
         >
-          {editing ? 'Tamam' : 'Düzenle'}
+          {editing ? 'Done' : 'Edit'}
         </button>
       </div>
 
@@ -81,8 +81,8 @@ function DiskOverview({ onNavigate }) {
       {disk && !editing && (
         <div className="mb-3">
           <div className="flex justify-between text-xs text-panel-muted mb-1">
-            <span className="tabular-nums">{formatBytes(disk.used)} kullanıldı</span>
-            <span className="tabular-nums opacity-60">{formatBytes(disk.avail)} boş / {formatBytes(disk.total)}</span>
+            <span className="tabular-nums">{formatBytes(disk.used)} used</span>
+            <span className="tabular-nums opacity-60">{formatBytes(disk.avail)} free / {formatBytes(disk.total)}</span>
           </div>
           <div className="h-2 bg-panel-surface rounded-full overflow-hidden">
             <div
@@ -405,25 +405,25 @@ export default function FileExplorer() {
 
     if (single) {
       if (single.type === 'dir') {
-        items.push({ label: 'Aç', icon: <Folder size={12} />, action: () => navigate(single.path) });
+        items.push({ label: 'Open', icon: <Folder size={12} />, action: () => navigate(single.path) });
       } else {
-        items.push({ label: 'Görüntüle', icon: <Eye size={12} />, action: () => openFile(single.path) });
-        items.push({ label: 'İndir', icon: <Download size={12} />, action: () => downloadFile(single.path) });
+        items.push({ label: 'View', icon: <Eye size={12} />, action: () => openFile(single.path) });
+        items.push({ label: 'Download', icon: <Download size={12} />, action: () => downloadFile(single.path) });
       }
-      items.push({ label: 'tar.gz İndir', icon: <Archive size={12} />, action: () => downloadTar(single.path) });
+      items.push({ label: 'Download as tar.gz', icon: <Archive size={12} />, action: () => downloadTar(single.path) });
       items.push('---');
     }
 
     if (selItems.length > 0) {
-      items.push({ label: isMulti ? `Kopyala (${selItems.length})` : 'Kopyala', icon: <Copy size={12} />, action: () => doCopy(selItems), shortcut: 'Ctrl+C' });
-      items.push({ label: isMulti ? `Kes (${selItems.length})` : 'Kes', icon: <Scissors size={12} />, action: () => doCut(selItems), shortcut: 'Ctrl+X' });
+      items.push({ label: isMulti ? `Copy (${selItems.length})` : 'Copy', icon: <Copy size={12} />, action: () => doCopy(selItems), shortcut: 'Ctrl+C' });
+      items.push({ label: isMulti ? `Cut (${selItems.length})` : 'Cut', icon: <Scissors size={12} />, action: () => doCut(selItems), shortcut: 'Ctrl+X' });
       items.push('---');
     }
 
     const pasteTarget = (single?.type === 'dir') ? single.path : path;
     if (clipboard) {
       items.push({
-        label: `Yapıştır${clipboard.mode === 'cut' ? ' (taşı)' : ' (kopyala)'}`,
+        label: `Paste${clipboard.mode === 'cut' ? ' (move)' : ' (copy)'}`,
         icon: <Clipboard size={12} />,
         action: () => doPaste(pasteTarget),
         shortcut: 'Ctrl+V',
@@ -432,13 +432,13 @@ export default function FileExplorer() {
     }
 
     if (selItems.length === 0) {
-      items.push({ label: 'Yeni Klasör', icon: <FolderPlus size={12} />, action: () => setShowNewFolder(true) });
+      items.push({ label: 'New Folder', icon: <FolderPlus size={12} />, action: () => setShowNewFolder(true) });
     } else {
       if (single) {
-        items.push({ label: 'Yeniden Adlandır', icon: <Pencil size={12} />, action: () => startRename(single), shortcut: 'F2' });
+        items.push({ label: 'Rename', icon: <Pencil size={12} />, action: () => startRename(single), shortcut: 'F2' });
       }
       items.push({
-        label: isMulti ? `Sil (${selItems.length})` : 'Sil',
+        label: isMulti ? `Delete (${selItems.length})` : 'Delete',
         icon: <Trash2 size={12} />,
         action: () => requestDelete(selItems),
         shortcut: 'Del',
@@ -692,7 +692,7 @@ export default function FileExplorer() {
         {dragOver && (
           <div className="absolute inset-0 z-10 bg-panel-accent/10 border-2 border-dashed border-panel-accent flex items-center justify-center pointer-events-none rounded">
             <div className="text-panel-accent text-sm font-medium flex items-center gap-2">
-              <Upload size={18} /> Dosyaları buraya bırak
+              <Upload size={18} /> Drop files here
             </div>
           </div>
         )}
@@ -702,13 +702,13 @@ export default function FileExplorer() {
         {/* Toolbar */}
         <div className="flex items-center gap-1.5 p-2 border-b border-panel-border bg-panel-surface">
           {/* Back / Forward / Up */}
-          <button onClick={goBack} disabled={navIdx === 0} className="text-panel-muted hover:text-panel-text disabled:opacity-30 p-1 rounded hover:bg-panel-hover" title="Geri (Backspace)">
+          <button onClick={goBack} disabled={navIdx === 0} className="text-panel-muted hover:text-panel-text disabled:opacity-30 p-1 rounded hover:bg-panel-hover" title="Back (Backspace)">
             <ArrowLeft size={13} />
           </button>
-          <button onClick={goForward} disabled={navIdx >= navHistory.length - 1} className="text-panel-muted hover:text-panel-text disabled:opacity-30 p-1 rounded hover:bg-panel-hover" title="İleri">
+          <button onClick={goForward} disabled={navIdx >= navHistory.length - 1} className="text-panel-muted hover:text-panel-text disabled:opacity-30 p-1 rounded hover:bg-panel-hover" title="Forward">
             <ArrowRight size={13} />
           </button>
-          <button onClick={goUp} disabled={path === '/'} className="text-panel-muted hover:text-panel-text disabled:opacity-30 p-1 rounded hover:bg-panel-hover" title="Üst klasör">
+          <button onClick={goUp} disabled={path === '/'} className="text-panel-muted hover:text-panel-text disabled:opacity-30 p-1 rounded hover:bg-panel-hover" title="Parent folder">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
           </button>
 
@@ -730,7 +730,7 @@ export default function FileExplorer() {
               <div
                 className="flex items-center gap-0.5 text-xs text-panel-muted cursor-text hover:bg-panel-hover rounded px-1.5 py-0.5 min-h-[22px]"
                 onClick={() => { setEditingPath(true); setPathInput(path); }}
-                title="Tıklayarak düzenle"
+                title="Click to edit"
               >
                 <button onClick={e => { e.stopPropagation(); navigate('/'); }} className="hover:text-panel-text shrink-0">/</button>
                 {pathParts.map((part, i) => (
@@ -746,11 +746,11 @@ export default function FileExplorer() {
             )}
           </div>
 
-          <button onClick={() => { setDirSizes({}); refetch(); }} className="text-panel-muted hover:text-panel-text p-1 rounded hover:bg-panel-hover" title="Yenile"><RefreshCw size={12} /></button>
-          <button onClick={() => setShowChart(v => !v)} className={`p-1 rounded hover:bg-panel-hover ${showChart ? 'text-panel-accent' : 'text-panel-muted hover:text-panel-text'}`} title="Boyut grafiği"><BarChart2 size={12} /></button>
-          <button onClick={() => setShowNewFolder(v => !v)} className="text-panel-muted hover:text-panel-text p-1 rounded hover:bg-panel-hover" title="Yeni klasör"><FolderPlus size={13} /></button>
-          <button onClick={() => { setShowUrlFetch(v => !v); setFetchError(''); }} className="text-panel-muted hover:text-panel-text p-1 rounded hover:bg-panel-hover" title="URL'den indir"><Link size={12} /></button>
-          <button onClick={() => uploadRef.current?.click()} className="text-panel-muted hover:text-panel-text p-1 rounded hover:bg-panel-hover" title="Dosya yükle"><Upload size={12} /></button>
+          <button onClick={() => { setDirSizes({}); refetch(); }} className="text-panel-muted hover:text-panel-text p-1 rounded hover:bg-panel-hover" title="Refresh"><RefreshCw size={12} /></button>
+          <button onClick={() => setShowChart(v => !v)} className={`p-1 rounded hover:bg-panel-hover ${showChart ? 'text-panel-accent' : 'text-panel-muted hover:text-panel-text'}`} title="Size chart"><BarChart2 size={12} /></button>
+          <button onClick={() => setShowNewFolder(v => !v)} className="text-panel-muted hover:text-panel-text p-1 rounded hover:bg-panel-hover" title="New folder"><FolderPlus size={13} /></button>
+          <button onClick={() => { setShowUrlFetch(v => !v); setFetchError(''); }} className="text-panel-muted hover:text-panel-text p-1 rounded hover:bg-panel-hover" title="Download from URL"><Link size={12} /></button>
+          <button onClick={() => uploadRef.current?.click()} className="text-panel-muted hover:text-panel-text p-1 rounded hover:bg-panel-hover" title="Upload files"><Upload size={12} /></button>
           <input ref={uploadRef} type="file" multiple className="hidden" onChange={handleUpload} />
         </div>
 
@@ -759,11 +759,11 @@ export default function FileExplorer() {
             <Trash2 size={12} className="text-panel-red shrink-0" />
             <span className="text-panel-text min-w-0 truncate">
               {pendingDelete.length === 1
-                ? <><span className="font-mono">{pendingDelete[0]}</span> kalıcı olarak silinecek (alt dizinleriyle birlikte).</>
-                : <>{pendingDelete.length} öğe kalıcı olarak silinecek (alt dizinleriyle birlikte).</>}
+                ? <><span className="font-mono">{pendingDelete[0]}</span> will be permanently deleted (including subfolders).</>
+                : <>{pendingDelete.length} items will be permanently deleted (including subfolders).</>}
             </span>
-            <button onClick={confirmPendingDelete} className="ml-auto px-2 py-0.5 rounded bg-panel-red text-white hover:opacity-90">Sil</button>
-            <button onClick={() => setPendingDelete(null)} className="px-2 py-0.5 text-panel-muted hover:text-panel-text">Vazgeç</button>
+            <button onClick={confirmPendingDelete} className="ml-auto px-2 py-0.5 rounded bg-panel-red text-white hover:opacity-90">Delete</button>
+            <button onClick={() => setPendingDelete(null)} className="px-2 py-0.5 text-panel-muted hover:text-panel-text">Cancel</button>
           </div>
         )}
 
@@ -771,10 +771,10 @@ export default function FileExplorer() {
           <div className="flex items-center gap-2 px-3 py-2 border-b border-panel-border bg-panel-hover">
             <input autoFocus value={newFolder} onChange={e => setNewFolder(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') createFolder(); if (e.key === 'Escape') setShowNewFolder(false); }}
-              placeholder="Klasör adı"
+              placeholder="Folder name"
               className="flex-1 bg-panel-bg border border-panel-border rounded px-2 py-1 text-xs text-panel-text focus:outline-none focus:border-panel-accent"
             />
-            <button onClick={createFolder} className="text-xs text-panel-accent hover:underline">Oluştur</button>
+            <button onClick={createFolder} className="text-xs text-panel-accent hover:underline">Create</button>
             <button onClick={() => setShowNewFolder(false)} className="text-panel-muted hover:text-panel-text"><X size={12} /></button>
           </div>
         )}
@@ -788,11 +788,11 @@ export default function FileExplorer() {
                 className="flex-1 bg-panel-bg border border-panel-border rounded px-2 py-1 text-xs text-panel-text focus:outline-none focus:border-panel-accent"
               />
               <input value={fetchFilename} onChange={e => setFetchFilename(e.target.value)}
-                placeholder="dosya adı (opsiyonel)"
+                placeholder="file name (optional)"
                 className="w-36 bg-panel-bg border border-panel-border rounded px-2 py-1 text-xs text-panel-text focus:outline-none focus:border-panel-accent"
               />
               <button onClick={handleFetchUrl} disabled={fetchLoading || !fetchUrl.trim()} className="text-xs text-panel-accent hover:underline disabled:opacity-40">
-                {fetchLoading ? 'İndiriliyor...' : 'İndir'}
+                {fetchLoading ? 'Downloading...' : 'Download'}
               </button>
               <button onClick={() => { setShowUrlFetch(false); setFetchError(''); }} className="text-panel-muted hover:text-panel-text"><X size={12} /></button>
             </div>
@@ -805,21 +805,21 @@ export default function FileExplorer() {
         {/* File table */}
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
-            <div className="p-4 text-panel-muted text-sm">Yükleniyor...</div>
+            <div className="p-4 text-panel-muted text-sm">Loading...</div>
           ) : (
-            <table className="w-full text-xs">
+            <table className="w-full table-fixed text-xs">
               <thead>
                 <tr className="text-panel-muted border-b border-panel-border">
-                  <th className="w-7 px-2 py-2">
+                  <th className="w-8 px-2 py-2">
                     <input ref={selectAllRef} type="checkbox" checked={allSelected}
                       onChange={e => setSelected(e.target.checked ? new Set((data?.items ?? []).map(i => i.path)) : new Set())}
                       className="w-3 h-3 cursor-pointer"
                     />
                   </th>
-                  <th className="text-left px-2 py-2 font-normal">Ad</th>
-                  <th className="hidden sm:table-cell text-right px-3 py-2 font-normal">Boyut</th>
-                  <th className="hidden sm:table-cell text-right px-3 py-2 font-normal">Değiştirilme</th>
-                  <th className="px-2 py-2" />
+                  <th className="text-left px-2 py-2 font-normal">Name</th>
+                  <th className="hidden sm:table-cell w-24 text-right px-3 py-2 font-normal">Size</th>
+                  <th className="hidden sm:table-cell w-32 text-right px-3 py-2 font-normal">Modified</th>
+                  <th className="w-10 sm:w-36 px-2 py-2" />
                 </tr>
               </thead>
               <tbody>
@@ -869,10 +869,10 @@ export default function FileExplorer() {
                             });
                             setLastSelectedPath(item.path);
                           }}
-                          className={`w-3 h-3 cursor-pointer ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-60'}`}
+                          className={`w-3.5 h-3.5 sm:w-3 sm:h-3 cursor-pointer ${isSelected ? 'opacity-100' : 'opacity-50 sm:opacity-0 sm:group-hover:opacity-60'}`}
                         />
                       </td>
-                      <td className="px-2 py-1.5">
+                      <td className="px-2 py-2.5 sm:py-1.5 min-w-0">
                         {renaming === item.path ? (
                           <div className="flex items-center gap-1">
                             <input autoFocus value={renameValue} onChange={e => setRenameValue(e.target.value)}
@@ -885,7 +885,7 @@ export default function FileExplorer() {
                         ) : (
                           <button
                             onClick={(e) => { e.stopPropagation(); if (item.type === 'dir') navigate(item.path); else openFile(item.path); }}
-                            className="flex items-center gap-2 text-left hover:text-panel-accent w-full"
+                            className="flex items-center gap-2 text-left hover:text-panel-accent w-full min-w-0"
                           >
                             {item.type === 'dir'
                               ? <Folder size={13} className="text-panel-yellow shrink-0" />
@@ -906,16 +906,21 @@ export default function FileExplorer() {
                       <td className="hidden sm:table-cell px-3 py-1.5 text-right text-panel-muted whitespace-nowrap">
                         {item.modified ? format(new Date(item.modified), 'MMM d, HH:mm') : '—'}
                       </td>
-                      <td className="px-2 py-1.5">
-                        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+                      <td className="px-1 sm:px-2 py-1.5">
+                        <button
+                          onClick={(e) => handleContextMenu(e, item)}
+                          aria-label={`Actions for ${item.name}`}
+                          className="sm:hidden p-2 text-panel-muted active:text-panel-text rounded"
+                        ><MoreVertical size={16} /></button>
+                        <div className="hidden sm:flex items-center justify-end gap-1 sm:opacity-0 sm:group-hover:opacity-100">
                           {item.type === 'file' && (
-                            <button onClick={(e) => { e.stopPropagation(); openFile(item.path); }} className="p-1 text-panel-muted hover:text-panel-cyan rounded" title="Görüntüle"><Eye size={12} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); openFile(item.path); }} className="p-1 text-panel-muted hover:text-panel-cyan rounded" title="View"><Eye size={12} /></button>
                           )}
-                          <button onClick={(e) => { e.stopPropagation(); downloadTar(item.path); }} className="p-1 text-panel-muted hover:text-panel-green rounded" title="tar.gz indir"><Archive size={12} /></button>
+                          <button onClick={(e) => { e.stopPropagation(); downloadTar(item.path); }} className="p-1 text-panel-muted hover:text-panel-green rounded" title="Download as tar.gz"><Archive size={12} /></button>
                           {item.type === 'file' && (
-                            <button onClick={(e) => { e.stopPropagation(); downloadFile(item.path); }} className="p-1 text-panel-muted hover:text-panel-accent rounded" title="İndir"><Download size={12} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); downloadFile(item.path); }} className="p-1 text-panel-muted hover:text-panel-accent rounded" title="Download"><Download size={12} /></button>
                           )}
-                          <button onClick={(e) => { e.stopPropagation(); startRename(item); }} className="p-1 text-panel-muted hover:text-panel-yellow rounded" title="Yeniden adlandır (F2)"><Pencil size={12} /></button>
+                          <button onClick={(e) => { e.stopPropagation(); startRename(item); }} className="p-1 text-panel-muted hover:text-panel-yellow rounded" title="Rename (F2)"><Pencil size={12} /></button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -923,7 +928,7 @@ export default function FileExplorer() {
                               else { setConfirmDelete(item.path); setTimeout(() => setConfirmDelete(null), 3000); }
                             }}
                             className={`p-1 rounded ${confirmDelete === item.path ? 'text-white bg-panel-red' : 'text-panel-muted hover:text-panel-red'}`}
-                            title="Sil (Del)"
+                            title="Delete (Del)"
                           ><Trash2 size={12} /></button>
                         </div>
                       </td>
@@ -939,25 +944,25 @@ export default function FileExplorer() {
         <div className="px-3 py-1.5 border-t border-panel-border/50 text-panel-muted text-xs flex items-center gap-3 min-h-[30px]">
           {selCount > 0 ? (
             <>
-              <span className="text-panel-text font-medium">{selCount} öğe seçili</span>
-              <button onClick={() => doCopy(getSelectedItems())} className="flex items-center gap-1 hover:text-panel-text" title="Ctrl+C"><Copy size={11} /> Kopyala</button>
-              <button onClick={() => doCut(getSelectedItems())} className="flex items-center gap-1 hover:text-panel-text" title="Ctrl+X"><Scissors size={11} /> Kes</button>
+              <span className="text-panel-text font-medium">{selCount} selected</span>
+              <button onClick={() => doCopy(getSelectedItems())} className="flex items-center gap-1 hover:text-panel-text" title="Ctrl+C"><Copy size={11} /> Copy</button>
+              <button onClick={() => doCut(getSelectedItems())} className="flex items-center gap-1 hover:text-panel-text" title="Ctrl+X"><Scissors size={11} /> Cut</button>
               {clipboard && (
-                <button onClick={() => doPaste(path)} className="flex items-center gap-1 hover:text-panel-text" title="Ctrl+V"><Clipboard size={11} /> Yapıştır</button>
+                <button onClick={() => doPaste(path)} className="flex items-center gap-1 hover:text-panel-text" title="Ctrl+V"><Clipboard size={11} /> Paste</button>
               )}
-              <button onClick={() => requestDelete(getSelectedItems())} className="flex items-center gap-1 hover:text-panel-red ml-auto" title="Del"><Trash2 size={11} /> Sil</button>
+              <button onClick={() => requestDelete(getSelectedItems())} className="flex items-center gap-1 hover:text-panel-red ml-auto" title="Del"><Trash2 size={11} /> Delete</button>
             </>
           ) : clipboard ? (
             <span className="flex items-center gap-1.5">
               <Clipboard size={11} />
-              <span>{clipboard.paths.length} öğe {clipboard.mode === 'cut' ? 'kesildi' : 'kopyalandı'} —</span>
-              <button onClick={() => doPaste(path)} className="text-panel-accent hover:underline">buraya yapıştır</button>
+              <span>{clipboard.paths.length} item(s) {clipboard.mode === 'cut' ? 'cut' : 'copied'} —</span>
+              <button onClick={() => doPaste(path)} className="text-panel-accent hover:underline">paste here</button>
               <button onClick={() => setClipboard(null)} className="hover:text-panel-text ml-1"><X size={10} /></button>
             </span>
           ) : (
             <>
-              <span>{data?.items?.length ?? 0} öğe</span>
-              <span className="ml-auto">sürükle & bırak, sağ tık veya <button onClick={() => uploadRef.current?.click()} className="underline hover:text-panel-text">yükle</button></span>
+              <span>{data?.items?.length ?? 0} items</span>
+              <span className="ml-auto">drag & drop, right-click or <button onClick={() => uploadRef.current?.click()} className="underline hover:text-panel-text">upload</button></span>
             </>
           )}
         </div>
@@ -975,18 +980,18 @@ export default function FileExplorer() {
                   onClick={saveFile}
                   disabled={saving}
                   className="flex items-center gap-1 px-2 py-0.5 rounded bg-panel-accent/20 text-panel-accent hover:bg-panel-accent/30 disabled:opacity-50"
-                  title="Kaydet (Ctrl+S)"
+                  title="Save (Ctrl+S)"
                 >
-                  <Save size={12} /> {saving ? 'Kaydediliyor…' : 'Kaydet'}
+                  <Save size={12} /> {saving ? 'Saving…' : 'Save'}
                 </button>
-                <button onClick={cancelEdit} className="hover:text-panel-text" title="Vazgeç">Vazgeç</button>
+                <button onClick={cancelEdit} className="hover:text-panel-text" title="Cancel">Cancel</button>
               </>
             ) : (
-              <button onClick={startEdit} className="flex items-center gap-1 hover:text-panel-accent" title="Düzenle">
-                <Pencil size={12} /> Düzenle
+              <button onClick={startEdit} className="flex items-center gap-1 hover:text-panel-accent" title="Edit">
+                <Pencil size={12} /> Edit
               </button>
             ))}
-            <button onClick={() => downloadFile(preview.path)} className="hover:text-panel-accent" title="İndir"><Download size={13} /></button>
+            <button onClick={() => downloadFile(preview.path)} className="hover:text-panel-accent" title="Download"><Download size={13} /></button>
             <button onClick={closePreview} className="hover:text-panel-text"><X size={14} /></button>
           </div>
           {editing ? (

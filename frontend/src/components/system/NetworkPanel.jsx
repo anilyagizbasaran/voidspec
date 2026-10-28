@@ -44,7 +44,7 @@ export default function NetworkPanel({ stats, hardware }) {
       <div className="bg-panel-surface border border-panel-border rounded-md p-4">
         <div className="flex items-center gap-2 mb-4">
           <Network size={13} className="text-panel-muted" />
-          <span className="text-panel-muted text-sm font-medium">Ağ trafiği, son 60 saniye</span>
+          <span className="text-panel-muted text-sm font-medium">Network traffic, last 60 seconds</span>
         </div>
         <ResponsiveContainer width="100%" height={160}>
           <AreaChart data={history} margin={{ top: 0, right: 0, bottom: 0, left: -10 }}>
@@ -79,7 +79,7 @@ export default function NetworkPanel({ stats, hardware }) {
       <div className="bg-panel-surface border border-panel-border rounded-md p-4">
         <div className="flex items-center gap-2 mb-3">
           <Wifi size={13} className="text-panel-muted" />
-          <span className="text-panel-muted text-sm font-medium">Ağ arayüzleri</span>
+          <span className="text-panel-muted text-sm font-medium">Network interfaces</span>
         </div>
 
         {ifaces.length === 0 && !stats?.network?.length ? (

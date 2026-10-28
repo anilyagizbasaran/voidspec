@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../../../store/useStore.js';
+import { useOpenPanel } from '../../../hooks/useOpenPanel.js';
 import client from '../../../api/client.js';
 import { Container, Play, Square, RotateCcw } from 'lucide-react';
 import { useWidgetSize, widgetBreakpoints } from '../WidgetSizeContext.js';
@@ -15,7 +16,7 @@ function relativeTime(started) {
 
 const WidgetDockerList = React.memo(function WidgetDockerList() {
   const qc = useQueryClient();
-  const setActiveTab = useStore(s => s.setActiveTab);
+  const openPanel = useOpenPanel();
   const [pending, setPending] = useState({});
 
   const px = useWidgetSize();
@@ -47,7 +48,7 @@ const WidgetDockerList = React.memo(function WidgetDockerList() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <Container size={13} className="text-panel-muted" />
-          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">Docker container'ları</span>}
+          {!bp.compact && <span className="text-[13px] font-medium text-panel-muted">Docker containers</span>}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-mono">
@@ -55,8 +56,8 @@ const WidgetDockerList = React.memo(function WidgetDockerList() {
             <span className="text-panel-muted/50">/{containers.length}</span>
           </span>
           {!bp.compact && (
-            <button onClick={() => setActiveTab('docker')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
-              Tümünü gör
+            <button onClick={() => openPanel('docker')} className="text-[11px] text-panel-muted/60 hover:text-panel-accent transition-colors">
+              View all
             </button>
           )}
         </div>
@@ -64,7 +65,7 @@ const WidgetDockerList = React.memo(function WidgetDockerList() {
 
       <div className="flex-1 overflow-auto divide-y divide-panel-border/30">
         {containers.length === 0 && (
-          <div className="flex items-center justify-center py-8 text-panel-muted text-xs">Container yok</div>
+          <div className="flex items-center justify-center py-8 text-panel-muted text-xs">No containers</div>
         )}
         {containers.map(c => {
           const isRunning = c.state === 'running';
@@ -93,17 +94,17 @@ const WidgetDockerList = React.memo(function WidgetDockerList() {
               <div className="flex items-center gap-0.5 shrink-0">
                 {isRunning ? (
                   <>
-                    <button onClick={() => doAction(c.id, 'restart')} disabled={isPending} title="Yeniden başlat"
+                    <button onClick={() => doAction(c.id, 'restart')} disabled={isPending} title="Restart"
                       className="p-1.5 text-panel-muted/50 hover:text-panel-yellow disabled:opacity-40 transition-colors rounded hover:bg-panel-hover">
                       <RotateCcw size={11} className={isPending && pending[c.id] === 'restart' ? 'animate-spin' : ''} />
                     </button>
-                    <button onClick={() => doAction(c.id, 'stop')} disabled={isPending} title="Durdur"
+                    <button onClick={() => doAction(c.id, 'stop')} disabled={isPending} title="Stop"
                       className="p-1.5 text-panel-muted/50 hover:text-panel-red disabled:opacity-40 transition-colors rounded hover:bg-panel-hover">
                       <Square size={11} />
                     </button>
                   </>
                 ) : (
-                  <button onClick={() => doAction(c.id, 'start')} disabled={isPending} title="Başlat"
+                  <button onClick={() => doAction(c.id, 'start')} disabled={isPending} title="Start"
                     className="p-1.5 text-panel-muted/50 hover:text-panel-green disabled:opacity-40 transition-colors rounded hover:bg-panel-hover">
                     <Play size={11} className={isPending ? 'animate-pulse' : ''} />
                   </button>

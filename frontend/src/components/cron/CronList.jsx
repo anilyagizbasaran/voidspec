@@ -443,7 +443,7 @@ export default function CronList() {
         <div className="bg-panel-surface border border-panel-border rounded-md p-4">
           <div className="flex items-center gap-2 mb-3">
             <FolderOpen size={13} className="text-panel-muted" />
-            <span className="text-panel-muted text-sm font-medium">Cron dizinleri</span>
+            <span className="text-panel-muted text-sm font-medium">Cron directories</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {dirEntries.map(([dir, files]) => (

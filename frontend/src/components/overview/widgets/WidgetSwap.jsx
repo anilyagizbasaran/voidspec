@@ -16,7 +16,7 @@ const WidgetSwap = React.memo(function WidgetSwap() {
     return (
       <div className="bg-panel-surface border border-panel-border rounded-md p-4 h-full flex flex-col items-center justify-center gap-2">
         <Database size={20} className="text-panel-muted/40" />
-        <span className="text-xs text-panel-muted">Swap devre dışı</span>
+        <span className="text-xs text-panel-muted">Swap disabled</span>
       </div>
     );
   }

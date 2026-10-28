@@ -3,21 +3,21 @@ import { History, RefreshCw, Search, X, CheckCircle2, XCircle, Lock, MapPin, Glo
 import { useLoginHistory } from '../../hooks/useLoginHistory.js';
 
 const RESULT_META = {
-  success: { label: 'Başarılı', icon: CheckCircle2, color: 'text-panel-green', dot: 'bg-panel-green' },
-  fail:    { label: 'Başarısız', icon: XCircle, color: 'text-panel-red', dot: 'bg-panel-red' },
-  locked:  { label: 'Kilitli', icon: Lock, color: 'text-panel-yellow', dot: 'bg-panel-yellow' },
+  success: { label: 'Success', icon: CheckCircle2, color: 'text-panel-green', dot: 'bg-panel-green' },
+  fail:    { label: 'Failed', icon: XCircle, color: 'text-panel-red', dot: 'bg-panel-red' },
+  locked:  { label: 'Locked', icon: Lock, color: 'text-panel-yellow', dot: 'bg-panel-yellow' },
 };
 
 const FILTER_TABS = [
-  { id: 'all', label: 'Tümü' },
-  { id: 'success', label: 'Başarılı' },
-  { id: 'fail', label: 'Başarısız' },
-  { id: 'locked', label: 'Kilitli' },
+  { id: 'all', label: 'All' },
+  { id: 'success', label: 'Success' },
+  { id: 'fail', label: 'Failed' },
+  { id: 'locked', label: 'Locked' },
 ];
 
 function locationText(loc) {
-  if (!loc || loc.note) return loc?.note === 'private/local' ? 'Yerel ağ' : '—';
-  const parts = [loc.city, loc.region, loc.country].filter(Boolean);
+  if (!loc || loc.note) return loc?.note === 'private/local' ? 'Local network' : '—';
+  const parts = [...new Set([loc.city, loc.region, loc.country].filter(Boolean))];
   return parts.length ? parts.join(', ') : '—';
 }
 
@@ -56,18 +56,18 @@ export default function LoginHistory() {
       <div className="flex items-center gap-3 flex-wrap">
         <h2 className="text-panel-text font-medium flex items-center gap-2">
           <History size={15} className="text-panel-muted" />
-          Giriş Geçmişi
+          Login History
         </h2>
         {counts.fail > 0 && (
           <span className="text-xs text-panel-red font-mono">
-            {counts.fail} başarısız deneme
+            {counts.fail} failed attempts
           </span>
         )}
         <button
           onClick={() => refetch()}
           disabled={isFetching}
           className="ml-auto p-1.5 text-panel-muted hover:text-panel-text disabled:opacity-40"
-          title="Yenile"
+          title="Refresh"
         >
           <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} />
         </button>
@@ -101,7 +101,7 @@ export default function LoginHistory() {
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="IP, konum, kullanıcı…"
+            placeholder="IP, location, user…"
             className="bg-panel-surface border border-panel-border rounded-md pl-7 pr-7 py-1 text-xs text-panel-text placeholder-panel-muted focus:outline-none focus:border-panel-accent w-52 font-mono"
           />
           {search && (
@@ -117,13 +117,13 @@ export default function LoginHistory() {
         <table className="w-full text-xs">
           <thead className="text-panel-muted border-b border-panel-border bg-panel-surface sticky top-0">
             <tr>
-              <th className="text-left pl-4 py-2 font-normal w-24">Sonuç</th>
-              <th className="text-left py-2 font-normal w-40">Tarih / Saat</th>
+              <th className="text-left pl-4 py-2 font-normal w-10 sm:w-24"><span className="hidden sm:inline">Result</span></th>
+              <th className="text-left py-2 font-normal w-40">Date / Time</th>
               <th className="text-left py-2 font-normal w-32">IP</th>
-              <th className="text-left py-2 font-normal">Konum</th>
+              <th className="text-left py-2 font-normal">Location</th>
               <th className="text-left py-2 font-normal hidden lg:table-cell">ISP</th>
-              <th className="text-left py-2 font-normal w-24">Kullanıcı</th>
-              <th className="text-left pr-4 py-2 font-normal hidden xl:table-cell">Tarayıcı</th>
+              <th className="text-left py-2 font-normal w-24 hidden sm:table-cell">User</th>
+              <th className="text-left pr-4 py-2 font-normal hidden xl:table-cell">Browser</th>
             </tr>
           </thead>
           <tbody>
@@ -138,7 +138,7 @@ export default function LoginHistory() {
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-12 text-center text-panel-muted">
-                  {search ? 'Eşleşen kayıt yok' : 'Henüz giriş kaydı yok'}
+                  {search ? 'No matching entries' : 'No login records yet'}
                 </td>
               </tr>
             ) : (
@@ -170,7 +170,7 @@ export default function LoginHistory() {
                     <td className="py-2 text-panel-muted hidden lg:table-cell max-w-[16rem] truncate" title={loc.isp || ''}>
                       {loc.isp || '—'}
                     </td>
-                    <td className="py-2 font-mono text-panel-muted">{e.username || '—'}</td>
+                    <td className="py-2 font-mono text-panel-muted hidden sm:table-cell">{e.username || '—'}</td>
                     <td className="py-2 pr-4 text-panel-muted hidden xl:table-cell max-w-xs truncate" title={e.userAgent || ''}>
                       {e.userAgent || '—'}
                     </td>

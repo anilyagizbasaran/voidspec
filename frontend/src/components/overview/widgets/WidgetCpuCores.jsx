@@ -25,7 +25,7 @@ const WidgetCpuCores = React.memo(function WidgetCpuCores() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <div className="flex items-center gap-2">
           <Cpu size={13} className="text-panel-muted" />
-          <span className="text-[13px] font-medium text-panel-muted">Çekirdek başına CPU</span>
+          <span className="text-[13px] font-medium text-panel-muted">Per-core CPU</span>
         </div>
         {overall != null && (
           <span className={`text-[11px] font-mono tabular-nums font-semibold ${coreColor(overall).text}`}>
@@ -36,7 +36,7 @@ const WidgetCpuCores = React.memo(function WidgetCpuCores() {
 
       <div className="flex-1 overflow-auto p-3">
         {cores.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-panel-muted text-xs">Yükleniyor…</div>
+          <div className="flex items-center justify-center h-full text-panel-muted text-xs">Loading…</div>
         ) : (
           <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
             {cores.map((pct, i) => {

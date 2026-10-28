@@ -15,7 +15,7 @@ const WidgetCpuRamChart = React.memo(function WidgetCpuRamChart() {
     if (!stats?.cpu || !stats?.memory) return;
     setHistory(prev => {
       const entry = {
-        t: new Date().toLocaleTimeString('tr-TR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        t: new Date().toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         cpu: parseFloat(stats.cpu.load.toFixed(1)),
         ram: parseFloat(stats.memory.percent.toFixed(1)),
       };
@@ -30,7 +30,7 @@ const WidgetCpuRamChart = React.memo(function WidgetCpuRamChart() {
     <div className="bg-panel-surface border border-panel-border rounded-md overflow-hidden h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border shrink-0">
         <span className="text-[13px] font-medium text-panel-muted">
-          {bp.compact ? 'CPU ve RAM' : 'CPU ve RAM geçmişi'}
+          {bp.compact ? 'CPU & RAM' : 'CPU & RAM history'}
         </span>
         {latest && (
           <div className="flex items-center gap-3 text-[11px] font-mono tabular-nums">

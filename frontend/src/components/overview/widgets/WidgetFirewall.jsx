@@ -2,6 +2,7 @@ import React from 'react';
 import { Shield } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useStore } from '../../../store/useStore.js';
+import { useOpenPanel } from '../../../hooks/useOpenPanel.js';
 import client from '../../../api/client.js';
 import { StatusCard } from '../cards.jsx';
 
@@ -14,16 +15,16 @@ const WidgetFirewall = React.memo(function WidgetFirewall() {
     queryFn: () => client.get('/firewall/status').then(r => r.data),
     refetchInterval: 30000,
   });
-  const setActiveTab = useStore(s => s.setActiveTab);
+  const openPanel = useOpenPanel();
   const active = fw?.active;
   return (
     <StatusCard
       icon={Shield}
-      label="Güvenlik duvarı"
-      value={active == null ? 'Kontrol ediliyor…' : active ? 'Açık' : 'Kapalı'}
-      sub={active ? `${fw?.rules?.length ?? 0} kural etkin` : 'Sunucu korumasız'}
+      label="Firewall"
+      value={active == null ? 'Checking…' : active ? 'Enabled' : 'Disabled'}
+      sub={active ? `${fw?.rules?.length ?? 0} active rules` : 'Server unprotected'}
       status={active ? 'ok' : active === false ? 'err' : 'off'}
-      onClick={() => setActiveTab('firewall')}
+      onClick={() => openPanel('firewall')}
     />
   );
 });

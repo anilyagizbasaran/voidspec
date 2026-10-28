@@ -1,7 +1,7 @@
 import { lazy } from 'react';
 import {
   LayoutDashboard, Terminal, FolderOpen, Container, Activity,
-  Server, Clock, Shield, Package, ScrollText, History,
+  Server, Clock, Shield, Package, ScrollText, History, Users,
 } from 'lucide-react';
 
 // Panellerin tek kaynağı: hem sidebar navigasyonu hem de router burayı kullanır.
@@ -47,6 +47,14 @@ export const PANELS = [
     Component: lazy(() => import('./components/services/ServiceList.jsx')),
   },
   {
+    // Bileşen ve backend uçları vardı ama menüde yoktu; panelden kullanıcı
+    // yönetimine ulaşılamıyordu.
+    id: 'users',
+    label: 'Users',
+    icon: Users,
+    Component: lazy(() => import('./components/users/UserPanel.jsx')),
+  },
+  {
     id: 'cron',
     label: 'Cron',
     icon: Clock,
@@ -72,13 +80,16 @@ export const PANELS = [
   },
   {
     id: 'loginhistory',
-    label: 'Giriş Geçmişi',
+    label: 'Login History',
     icon: History,
     Component: lazy(() => import('./components/security/LoginHistory.jsx')),
   },
 ];
 
 export const DEFAULT_PANEL = 'dashboard';
+
+// Mobil alt çubukta doğrudan görünen paneller; gerisi "Menü" sayfasında.
+export const MOBILE_PRIMARY = ['dashboard', 'terminal', 'files', 'docker'];
 
 export const PANEL_IDS = PANELS.map(p => p.id);
 

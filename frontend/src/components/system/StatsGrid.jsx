@@ -52,7 +52,7 @@ export default function StatsGrid({ stats }) {
         icon={Cpu}
         label="CPU"
         value={`${stats.cpu.load}%`}
-        sub={`${stats.cpu.cores} çekirdek, yük ${stats.cpu.loadAvg?.[0]?.toFixed(2) ?? stats.loadAvg?.[0]?.toFixed(2) ?? '—'}`}
+        sub={`${stats.cpu.cores} cores, load ${stats.cpu.loadAvg?.[0]?.toFixed(2) ?? stats.loadAvg?.[0]?.toFixed(2) ?? '—'}`}
         percent={stats.cpu.load}
         color={stats.cpu.load > 80 ? 'text-panel-red' : 'text-panel-green'}
       />

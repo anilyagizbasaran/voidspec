@@ -127,10 +127,10 @@ const PREVIEWS = {
 };
 
 const CATEGORIES = [
-  { key: 'resources', label: 'Kaynaklar',  ids: ['cpu', 'memory', 'disk', 'network', 'swap'] },
-  { key: 'status',    label: 'Durum',      ids: ['firewall', 'docker', 'services', 'processes'] },
-  { key: 'charts',    label: 'Grafikler',  ids: ['cpuramchart', 'networkchart', 'diskio', 'cpucores'] },
-  { key: 'lists',     label: 'Listeler',   ids: ['topprocs', 'recentlogs', 'dockerlist', 'disklist', 'ports'] },
+  { key: 'resources', label: 'Resources',  ids: ['cpu', 'memory', 'disk', 'network', 'swap'] },
+  { key: 'status',    label: 'Status',      ids: ['firewall', 'docker', 'services', 'processes'] },
+  { key: 'charts',    label: 'Charts',     ids: ['cpuramchart', 'networkchart', 'diskio', 'cpucores'] },
+  { key: 'lists',     label: 'Lists',      ids: ['topprocs', 'recentlogs', 'dockerlist', 'disklist', 'ports'] },
 ];
 
 function WidgetCard({ id, reg, active, onToggle }) {
@@ -186,7 +186,7 @@ function WidgetCard({ id, reg, active, onToggle }) {
           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
             active ? 'text-panel-green bg-panel-green/10' : 'text-panel-muted/40 bg-panel-hover'
           }`}>
-            {active ? 'Aktif' : 'Gizli'}
+            {active ? 'Active' : 'Hidden'}
           </span>
         </div>
       </div>
@@ -209,7 +209,7 @@ export default function WidgetGallery({ visible, onToggle, onClose }) {
             <LayoutGrid size={15} className="text-panel-accent" />
           </div>
           <div>
-            <h2 className="text-panel-text text-sm font-semibold">Widget Galerisi</h2>
+            <h2 className="text-panel-text text-sm font-semibold">Widget Gallery</h2>
             <p className="text-panel-muted text-xs mt-0.5">
               <span className="text-panel-green">{activeCount} aktif</span>
               {hiddenCount > 0 && <span className="text-panel-muted/60">, {hiddenCount} gizli</span>}
@@ -229,7 +229,7 @@ export default function WidgetGallery({ visible, onToggle, onClose }) {
                   : 'text-panel-muted/60 hover:text-panel-muted border border-transparent'
               }`}
             >
-              {f === 'all' ? 'Tümü' : f === 'active' ? 'Aktif' : 'Gizli'}
+              {f === 'all' ? 'All' : f === 'active' ? 'Active' : 'Hidden'}
             </button>
           ))}
         </div>
@@ -290,7 +290,7 @@ export default function WidgetGallery({ visible, onToggle, onClose }) {
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-panel-muted">
             <LayoutGrid size={28} className="opacity-20" />
             <p className="text-sm opacity-40">
-              {filter === 'hidden' ? 'Tüm widget\'lar aktif!' : 'Widget bulunamadı'}
+              {filter === 'hidden' ? 'All widgets are active!' : 'No widgets found'}
             </p>
           </div>
         )}
@@ -298,13 +298,13 @@ export default function WidgetGallery({ visible, onToggle, onClose }) {
 
       {/* ── Footer ── */}
       <div className="shrink-0 px-6 py-3 border-t border-panel-border flex items-center justify-between">
-        <span className="text-[11px] text-panel-muted/50">Göstermek ya da gizlemek için widget kartına tıkla</span>
+        <span className="text-[11px] text-panel-muted/50">Click a widget card to show or hide it</span>
         <button
           onClick={onClose}
           className="flex items-center gap-1.5 px-4 py-1.5 text-xs bg-panel-accent/15 border border-panel-accent/30 rounded text-panel-accent hover:bg-panel-accent/25 transition-all"
         >
           <Check size={11} />
-          Tamam
+          Done
         </button>
       </div>
     </div>

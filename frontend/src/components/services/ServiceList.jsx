@@ -119,7 +119,7 @@ export default function ServiceList() {
     setPending(`${name}:${action}`);
     try {
       await actionMutation.mutateAsync({ name, action });
-      showToast(true, `${name}: ${action} gönderildi`);
+      showToast(true, `${name}: ${action} sent`);
     } catch (e) {
       showToast(false, e.response?.data?.error || `Failed: ${action}`);
     } finally {
@@ -179,7 +179,7 @@ export default function ServiceList() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-1 border-b border-panel-border pb-2">
+      <div className="flex flex-wrap items-center gap-1 border-b border-panel-border pb-2">
         {FILTER_TABS.map(tab => (
           <button
             key={tab.id}
@@ -200,14 +200,14 @@ export default function ServiceList() {
           </button>
         ))}
 
-        <div className="relative ml-auto">
+        <div className="relative w-full sm:w-auto sm:ml-auto mt-1 sm:mt-0">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-panel-muted" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search…"
-            className="bg-panel-surface border border-panel-border rounded-md pl-7 pr-7 py-1 text-xs text-panel-text placeholder-panel-muted focus:outline-none focus:border-panel-accent w-44 font-mono"
+            className="bg-panel-surface border border-panel-border rounded-md pl-7 pr-7 py-1 text-xs text-panel-text placeholder-panel-muted focus:outline-none focus:border-panel-accent w-full sm:w-44 font-mono"
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-panel-muted hover:text-panel-text">

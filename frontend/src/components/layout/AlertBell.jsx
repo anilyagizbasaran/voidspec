@@ -36,29 +36,29 @@ function computeAlerts(stats, svcs, thresholds, dismissed) {
   };
 
   const cpu = stats?.cpu?.load;
-  if (cpu >= thresholds.cpu.crit)       add('cpu_crit', 'crit', `CPU %${cpu} — kritik yük`,    `Eşik: %${thresholds.cpu.crit}`);
-  else if (cpu >= thresholds.cpu.warn)  add('cpu_warn', 'warn', `CPU %${cpu} — yüksek`,        `Eşik: %${thresholds.cpu.warn}`);
+  if (cpu >= thresholds.cpu.crit)       add('cpu_crit', 'crit', `CPU ${cpu}% — critical load`,    `Threshold: ${thresholds.cpu.crit}%`);
+  else if (cpu >= thresholds.cpu.warn)  add('cpu_warn', 'warn', `CPU ${cpu}% — high`,        `Threshold: ${thresholds.cpu.warn}%`);
 
   const ram = stats?.memory?.percent;
-  if (ram >= thresholds.ram.crit)       add('ram_crit', 'crit', `RAM %${ram} — kritik`,        `Eşik: %${thresholds.ram.crit}`);
-  else if (ram >= thresholds.ram.warn)  add('ram_warn', 'warn', `RAM %${ram} — yüksek`,        `Eşik: %${thresholds.ram.warn}`);
+  if (ram >= thresholds.ram.crit)       add('ram_crit', 'crit', `RAM ${ram}% — critical`,        `Threshold: ${thresholds.ram.crit}%`);
+  else if (ram >= thresholds.ram.warn)  add('ram_warn', 'warn', `RAM ${ram}% — high`,        `Threshold: ${thresholds.ram.warn}%`);
 
   stats?.disk?.forEach((d, i) => {
     const v = d.percent ?? 0;
     const mount = d.mount || d.fs;
-    if (v >= thresholds.disk.crit)      add(`disk_crit_${i}`, 'crit', `${mount} %${v.toFixed(0)} dolu`, `Eşik: %${thresholds.disk.crit}`);
-    else if (v >= thresholds.disk.warn) add(`disk_warn_${i}`, 'warn', `${mount} %${v.toFixed(0)} dolu`, `Eşik: %${thresholds.disk.warn}`);
+    if (v >= thresholds.disk.crit)      add(`disk_crit_${i}`, 'crit', `${mount} ${v.toFixed(0)}% full`, `Threshold: ${thresholds.disk.crit}%`);
+    else if (v >= thresholds.disk.warn) add(`disk_warn_${i}`, 'warn', `${mount} ${v.toFixed(0)}% full`, `Threshold: ${thresholds.disk.warn}%`);
   });
 
   const swap = stats?.memory?.swap;
   if (swap?.total > 0) {
     const pct = Math.round((swap.used / swap.total) * 100);
-    if (pct >= thresholds.swap.crit)    add('swap_crit', 'crit', `Swap %${pct} dolu`,          `Eşik: %${thresholds.swap.crit}`);
-    else if (pct >= thresholds.swap.warn) add('swap_warn', 'warn', `Swap %${pct} dolu`,        `Eşik: %${thresholds.swap.warn}`);
+    if (pct >= thresholds.swap.crit)    add('swap_crit', 'crit', `Swap ${pct}% full`,          `Threshold: ${thresholds.swap.crit}%`);
+    else if (pct >= thresholds.swap.warn) add('swap_warn', 'warn', `Swap ${pct}% full`,        `Threshold: ${thresholds.swap.warn}%`);
   }
 
   svcs?.services?.filter(s => s.active === 'failed').forEach(s => {
-    add(`svc_${s.name}`, 'crit', `${s.name} servisi başarısız`, 'systemd: failed');
+    add(`svc_${s.unit}`, 'crit', `${s.unit} failed`, 'systemd: failed');
   });
 
   return alerts;
@@ -84,7 +84,7 @@ function ThresholdSettings({ thresholds, onChange, onClose }) {
 
   return (
     <div className="px-3 py-3 border-t border-panel-border">
-      <div className="text-[13px] font-medium text-panel-muted mb-2.5">Eşik değerleri (%)</div>
+      <div className="text-[13px] font-medium text-panel-muted mb-2.5">Thresholds (%)</div>
       {rows.map(({ key, label }) => (
         <div key={key} className="flex items-center gap-2 mb-2">
           <span className="text-xs text-panel-muted w-10 shrink-0">{label}</span>
@@ -106,7 +106,7 @@ function ThresholdSettings({ thresholds, onChange, onClose }) {
       ))}
       <button onClick={onClose}
         className="mt-1 w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-panel-green bg-panel-green/10 rounded hover:bg-panel-green/20 transition-colors">
-        <Check size={11} /> Tamam
+        <Check size={11} /> Done
       </button>
     </div>
   );
@@ -159,7 +159,7 @@ export default function AlertBell() {
         onClick={() => { setOpen(p => !p); setShowSettings(false); }}
         className={`relative flex items-center justify-center w-7 h-7 rounded-md transition-all
           ${open ? 'bg-panel-hover text-panel-text' : 'text-panel-muted/50 hover:text-panel-muted hover:bg-panel-hover'}`}
-        title="Uyarılar"
+        title="Alerts"
       >
         <BellIcon size={14} className={total > 0 ? (critCount > 0 ? 'text-panel-red' : 'text-panel-yellow') : ''} />
         {total > 0 && (
@@ -174,13 +174,13 @@ export default function AlertBell() {
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-panel-border">
             <span className="text-xs font-medium text-panel-text">
-              {total === 0 ? 'Uyarı yok' : `${total} uyarı`}
+              {total === 0 ? 'No alerts' : `${total} alert${total === 1 ? '' : 's'}`}
             </span>
             <div className="flex items-center gap-1">
               {total > 0 && (
                 <button onClick={dismissAll}
                   className="text-[11px] text-panel-muted/60 hover:text-panel-accent px-1.5 py-0.5 rounded transition-colors">
-                  tümünü kapat
+                  dismiss all
                 </button>
               )}
               <button onClick={() => setShowSettings(p => !p)}
@@ -198,7 +198,7 @@ export default function AlertBell() {
                   <span className="w-8 h-8 rounded-full bg-panel-green/10 flex items-center justify-center">
                     <Check size={16} className="text-panel-green" />
                   </span>
-                  <span className="text-xs text-panel-muted">Tüm metrikler normal</span>
+                  <span className="text-xs text-panel-muted">All metrics normal</span>
                 </div>
               ) : (
                 <div className="divide-y divide-panel-border/50">
